@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: gachisa-backend
+
+  profiles:
+    active: local
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # 초기 개발 중엔 update, 이후 반드시 validate로 전환 권장
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false     # N+1/지연로딩 문제를 명확히 드러내기 위해 false
+
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: Asia/Seoul
+
+jwt:
+  secret: ${JWT_SECRET:change-this-secret-in-local-yml}
+  access-token-expire-ms: 1800000      # 30분
+  refresh-token-expire-ms: 604800000   # 7일
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace
