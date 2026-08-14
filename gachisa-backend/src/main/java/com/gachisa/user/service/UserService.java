@@ -55,7 +55,26 @@ public class UserService {
         return toUserInfo(user);
     }
 
+    @Transactional
+    public UserInfo updateMe(Long userId, String name, String currentPassword, String newPassword) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if (name != null && !name.isBlank()) {
+            user.updateName(name);
+        }
+
+        if (newPassword != null && !newPassword.isBlank()) {
+            if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+                throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
+            }
+            user.changePassword(passwordEncoder.encode(newPassword));
+        }
+
+        return toUserInfo(user);
+    }
+
     private UserInfo toUserInfo(User user) {
-        return new UserInfo(user.getId(), user.getEmail(), user.getName(), user.getRole());
+        return new UserInfo(user.getId(), user.getEmail(), user.getName(), user.getRole(), user.getCreatedAt());
     }
 }
