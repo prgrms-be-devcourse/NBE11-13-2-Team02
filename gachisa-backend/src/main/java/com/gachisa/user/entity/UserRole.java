@@ -1,7 +1,7 @@
 package com.gachisa.user.entity;
 
 public enum UserRole {
-    BUYER,
-    SELLER,
-    ADMIN
+    ROLE_BUYER,
+    ROLE_SELLER,
+    ROLE_ADMIN
 }
