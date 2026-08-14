@@ -4,10 +4,10 @@
 -- 앱을 끄면 테이블 자체가 삭제되므로, 이 파일은 항상 최신 스키마에 맞게 유지하면 됩니다.
 
 INSERT INTO users (email, password, name, role, created_at) VALUES
-                                                                 ('buyer1@test.com', '$2a$10$dummyHashedPassword1', '구매자1', 'BUYER', NOW()),
-                                                                 ('buyer2@test.com', '$2a$10$dummyHashedPassword2', '구매자2', 'BUYER', NOW()),
-                                                                 ('seller1@test.com', '$2a$10$dummyHashedPassword3', '판매자1', 'SELLER', NOW()),
-                                                                 ('admin@test.com',  '$2a$10$dummyHashedPassword4', '관리자',  'ADMIN', NOW());
+                                                                 ('buyer1@test.com', '$2a$10$dummyHashedPassword1', '구매자1', 'ROLE_BUYER', NOW()),
+                                                                 ('buyer2@test.com', '$2a$10$dummyHashedPassword2', '구매자2', 'ROLE_BUYER', NOW()),
+                                                                 ('seller1@test.com', '$2a$10$dummyHashedPassword3', '판매자1', 'ROLE_SELLER', NOW()),
+                                                                 ('admin@test.com',  '$2a$10$dummyHashedPassword4', '관리자',  'ROLE_ADMIN', NOW());
 
 INSERT INTO category (name, parent_id) VALUES
                                            ('생활/리빙', NULL),

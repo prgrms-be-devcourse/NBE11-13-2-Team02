@@ -19,7 +19,18 @@ public enum ErrorCode {
     CANNOT_CANCEL_CONFIRMED(HttpStatus.CONFLICT, "확정된 참여는 취소할 수 없습니다. 환불을 이용하세요."),
 
     // Product
-    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다.");
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."),
+
+    // Auth
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 인증 정보입니다."),
+    REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, "인증 정보를 찾을 수 없습니다."),
+    REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "보안을 위해 모든 기기에서 로그아웃되었습니다. 다시 로그인해주세요."),
+    INVALID_SIGNUP_ROLE(HttpStatus.BAD_REQUEST, "회원가입 시 선택할 수 없는 권한입니다."),
+    EMAIL_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다."),
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."),
+
+    // User
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;
