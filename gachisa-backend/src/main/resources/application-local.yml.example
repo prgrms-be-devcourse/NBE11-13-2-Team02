@@ -19,4 +19,4 @@ spring:
       mode: always
 
 jwt:
-  secret: local-dev-secret-change-me-1234567890
+  secret: change-this-to-a-64-byte-or-longer-random-string-for-hs512-algorithm-xxxxx
