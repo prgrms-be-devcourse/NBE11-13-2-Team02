@@ -48,4 +48,12 @@ public class User {
         this.role = role;
         this.createdAt = createdAt;
     }
+
+    public void updateName(String name) {
+        this.name = name;
+    }
+
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
