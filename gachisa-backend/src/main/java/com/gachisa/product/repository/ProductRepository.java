@@ -1,6 +1,7 @@
 package com.gachisa.product.repository;
 
-// TODO: extends JpaRepository<Product, Long>
-// findByStatus(String status), findBySellerId(Long sellerId)
-public interface ProductRepository {
+import com.gachisa.product.entity.Product;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProductRepository extends JpaRepository<Product, Long> {
 }
