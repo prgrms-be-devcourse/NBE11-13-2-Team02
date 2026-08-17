@@ -83,6 +83,12 @@ public class ProductService {
         return ProductResponse.of(product, productOptionRepository.findByProductId(productId));
     }
 
+    public List<ProductResponse> searchProducts(Long categoryId, Integer minPrice, Integer maxPrice, String keyword) {
+        return productRepository.search(categoryId, minPrice, maxPrice, keyword).stream()
+            .map(product -> ProductResponse.of(product, productOptionRepository.findByProductId(product.getId())))
+            .collect(Collectors.toList());
+    }
+
     @Transactional
     public ProductResponse updateProduct(Long productId, Long sellerId, ProductUpdateRequest request) {
         Product product = getProductOrThrow(productId);
