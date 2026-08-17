@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,6 +44,14 @@ public class ProductController {
     @GetMapping("/{productId}")
     public ProductResponse getProduct(@PathVariable Long productId) {
         return productService.getProduct(productId);
+    }
+
+    @GetMapping("/search")
+    public List<ProductResponse> searchProducts(@RequestParam(required = false) Long categoryId,
+                                                 @RequestParam(required = false) Integer minPrice,
+                                                 @RequestParam(required = false) Integer maxPrice,
+                                                 @RequestParam(required = false) String keyword) {
+        return productService.searchProducts(categoryId, minPrice, maxPrice, keyword);
     }
 
     @PatchMapping("/{productId}")
