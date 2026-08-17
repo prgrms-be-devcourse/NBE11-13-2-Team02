@@ -1,4 +1,12 @@
 package com.gachisa.product.dto;
 
-public class ProductCreateRequest {
-}
+import java.util.List;
+
+public record ProductCreateRequest(
+    String name,
+    String description,
+    int basePrice,
+    Long categoryId,
+    String imageUrl,
+    List<ProductOptionRequest> options
+) {}

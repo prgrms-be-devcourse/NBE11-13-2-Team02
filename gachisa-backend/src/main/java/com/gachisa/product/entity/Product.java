@@ -47,6 +47,8 @@ public class Product {
     @Column(nullable = false)
     private int basePrice;
 
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ProductStatus status;
@@ -56,12 +58,13 @@ public class Product {
 
     @Builder
     private Product(User seller, Category category, String name, String description, int basePrice,
-                     ProductStatus status, LocalDateTime createdAt) {
+                     String imageUrl, ProductStatus status, LocalDateTime createdAt) {
         this.seller = seller;
         this.category = category;
         this.name = name;
         this.description = description;
         this.basePrice = basePrice;
+        this.imageUrl = imageUrl;
         this.status = status;
         this.createdAt = createdAt;
     }
@@ -72,5 +75,29 @@ public class Product {
 
     public void resumeSale() {
         this.status = ProductStatus.ON_SALE;
+    }
+
+    public boolean isOwnedBy(Long userId) {
+        return this.seller.getId().equals(userId);
+    }
+
+    public void updateName(String name) {
+        this.name = name;
+    }
+
+    public void updateDescription(String description) {
+        this.description = description;
+    }
+
+    public void updateBasePrice(int basePrice) {
+        this.basePrice = basePrice;
+    }
+
+    public void updateCategory(Category category) {
+        this.category = category;
+    }
+
+    public void updateImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }
