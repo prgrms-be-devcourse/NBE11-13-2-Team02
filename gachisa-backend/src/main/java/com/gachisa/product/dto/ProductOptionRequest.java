@@ -1,4 +1,7 @@
 package com.gachisa.product.dto;
 
-public class ProductOptionRequest {
-}
+public record ProductOptionRequest(
+    String optionName,
+    String optionValue,
+    int stock
+) {}

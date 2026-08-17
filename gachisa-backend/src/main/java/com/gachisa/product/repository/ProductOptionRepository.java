@@ -1,5 +1,10 @@
 package com.gachisa.product.repository;
 
-// TODO: extends JpaRepository<ProductOption, Long>
-public interface ProductOptionRepository {
+import com.gachisa.product.entity.ProductOption;
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProductOptionRepository extends JpaRepository<ProductOption, Long> {
+
+    List<ProductOption> findByProductId(Long productId);
 }
