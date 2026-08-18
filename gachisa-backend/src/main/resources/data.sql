@@ -33,8 +33,8 @@ INSERT INTO participation (group_buy_id, user_id, quantity, status, participated
                                                                                          (1, 2, 1, 'CONFIRMED', NOW());
 
 -- 참여 3번(id=3)은 결제/주문까지 완료된 상태를 보여주는 예시 데이터
-INSERT INTO payment (participation_id, amount, status, payment_method, pg_transaction_id, paid_at) VALUES
-                                                                                                        (3, 12600, 'COMPLETED', 'CARD', 'pg_txn_00001', NOW());
+INSERT INTO payment (participation_id, amount, status, created_at, updated_at, paid_at) VALUES
+                                                                                              (3, 12600, 'PAID', NOW(), NOW(), NOW());
 
-INSERT INTO order_table (participation_id, delivery_status, address, created_at) VALUES
-                                                                                     (3, 'PREPARING', '서울특별시 강남구 테헤란로 123', NOW());
+INSERT INTO order_table (participation_id, payment_id, buyer_id, delivery_status, created_at, updated_at) VALUES
+                                                                                                               (3, 1, 2, 'PREPARING', NOW(), NOW());

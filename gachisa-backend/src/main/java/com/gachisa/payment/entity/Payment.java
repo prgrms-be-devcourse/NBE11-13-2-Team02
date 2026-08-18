@@ -1,16 +1,12 @@
 package com.gachisa.payment.entity;
 
-import com.gachisa.participation.entity.Participation;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -28,9 +24,8 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "participation_id", nullable = false, unique = true)
-    private Participation participation;
+    @Column(nullable = false, unique = true)
+    private Long participationId;
 
     @Column(nullable = false)
     private int amount;
@@ -39,35 +34,34 @@ public class Payment {
     @Column(nullable = false)
     private PaymentStatus status;
 
-    @Column(nullable = false)
-    private String paymentMethod;
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    private String pgTransactionId;
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 
     private LocalDateTime paidAt;
 
+    private LocalDateTime refundedAt;
+
     @Builder
-    private Payment(Participation participation, int amount, PaymentStatus status, String paymentMethod,
-                     String pgTransactionId, LocalDateTime paidAt) {
-        this.participation = participation;
+    private Payment(Long participationId, int amount, PaymentStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.participationId = participationId;
         this.amount = amount;
         this.status = status;
-        this.paymentMethod = paymentMethod;
-        this.pgTransactionId = pgTransactionId;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+
+    public void complete(LocalDateTime paidAt) {
+        this.status = PaymentStatus.PAID;
         this.paidAt = paidAt;
+        this.updatedAt = paidAt;
     }
 
-    public void complete(String pgTransactionId, LocalDateTime paidAt) {
-        this.status = PaymentStatus.COMPLETED;
-        this.pgTransactionId = pgTransactionId;
-        this.paidAt = paidAt;
-    }
-
-    public void fail() {
-        this.status = PaymentStatus.FAILED;
-    }
-
-    public void refund() {
+    public void refund(LocalDateTime refundedAt) {
         this.status = PaymentStatus.REFUNDED;
+        this.refundedAt = refundedAt;
+        this.updatedAt = refundedAt;
     }
 }

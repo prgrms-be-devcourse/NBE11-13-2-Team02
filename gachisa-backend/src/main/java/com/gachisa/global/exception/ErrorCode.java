@@ -18,6 +18,38 @@ public enum ErrorCode {
     PARTICIPATION_NOT_FOUND(HttpStatus.NOT_FOUND, "참여 내역을 찾을 수 없습니다."),
     CANNOT_CANCEL_CONFIRMED(HttpStatus.CONFLICT, "확정된 참여는 취소할 수 없습니다. 환불을 이용하세요."),
 
+    // Queue
+    QUEUE_NOT_OPEN(HttpStatus.CONFLICT, "현재 대기열에 참여할 수 없습니다."),
+    QUEUE_TOKEN_INVALID(HttpStatus.BAD_REQUEST, "유효하지 않은 대기열 토큰입니다."),
+    QUEUE_ADMISSION_REQUIRED(HttpStatus.CONFLICT, "결제 차례가 아직 도착하지 않았습니다."),
+    QUEUE_ADMISSION_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되어 대기열 끝으로 이동했습니다."),
+
+    // Payment
+    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 내역을 찾을 수 없습니다."),
+    PAYMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 생성된 결제가 있습니다."),
+    PAYMENT_IDEMPOTENCY_KEY_INVALID(HttpStatus.BAD_REQUEST, "멱등키는 UUID v4 형식이어야 합니다."),
+    PAYMENT_IDEMPOTENCY_KEY_CONFLICT(HttpStatus.UNPROCESSABLE_CONTENT,
+            "동일한 멱등키로 다른 결제를 요청할 수 없습니다."),
+    PAYMENT_NOT_ALLOWED(HttpStatus.CONFLICT, "결제할 수 없는 참여 상태입니다."),
+    PAYMENT_ALREADY_PROCESSED(HttpStatus.CONFLICT, "이미 처리된 결제입니다."),
+    PAYMENT_ATTEMPT_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 시도 내역을 찾을 수 없습니다."),
+    PAYMENT_ATTEMPT_IN_PROGRESS(HttpStatus.CONFLICT, "이전 결제 시도를 확인하고 있습니다."),
+    PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "결제 금액이 일치하지 않습니다."),
+    PAYMENT_ORDER_MISMATCH(HttpStatus.BAD_REQUEST, "PG 주문번호가 일치하지 않습니다."),
+    PAYMENT_EXPIRED(HttpStatus.CONFLICT, "결제 가능 시간이 만료되었습니다."),
+    PAYMENT_GATEWAY_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "PG 테스트 키가 설정되지 않았습니다."),
+    PAYMENT_GATEWAY_REJECTED(HttpStatus.BAD_GATEWAY, "PG사가 결제 승인을 거절했습니다."),
+    PAYMENT_GATEWAY_PROCESSING(HttpStatus.CONFLICT, "PG사가 이전 결제 요청을 처리하고 있습니다."),
+    PAYMENT_GATEWAY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PG사에 연결할 수 없습니다."),
+    PAYMENT_GATEWAY_INVALID_RESPONSE(HttpStatus.BAD_GATEWAY, "PG사 응답 정보가 올바르지 않습니다."),
+    REFUND_NOT_FOUND(HttpStatus.NOT_FOUND, "환불 내역을 찾을 수 없습니다."),
+    REFUND_NOT_ALLOWED(HttpStatus.CONFLICT, "환불할 수 없는 결제 상태입니다."),
+    REFUND_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "환불 사유가 필요합니다."),
+
+    // Order
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "주문을 찾을 수 없습니다."),
+    INVALID_DELIVERY_STATUS_TRANSITION(HttpStatus.CONFLICT, "허용되지 않는 배송 상태 변경입니다."),
+
     // Product
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."),
     PRODUCT_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "상품 옵션을 찾을 수 없습니다."),
