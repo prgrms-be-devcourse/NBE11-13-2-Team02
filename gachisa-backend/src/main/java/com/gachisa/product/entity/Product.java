@@ -2,28 +2,18 @@ package com.gachisa.product.entity;
 
 import com.gachisa.category.entity.Category;
 import com.gachisa.user.entity.User;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "product")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Product {
 
     @Id
@@ -58,7 +48,7 @@ public class Product {
 
     @Builder
     private Product(User seller, Category category, String name, String description, int basePrice,
-                     String imageUrl, ProductStatus status, LocalDateTime createdAt) {
+                    String imageUrl, ProductStatus status, LocalDateTime createdAt) {
         this.seller = seller;
         this.category = category;
         this.name = name;
@@ -70,11 +60,15 @@ public class Product {
     }
 
     public void stopSale() {
-        this.status = ProductStatus.STOPPED;
+        this.status = ProductStatus.SUSPENDED;
     }
 
     public void resumeSale() {
         this.status = ProductStatus.ON_SALE;
+    }
+
+    public boolean isOnSale() {
+        return status == ProductStatus.ON_SALE;
     }
 
     public boolean isOwnedBy(Long userId) {

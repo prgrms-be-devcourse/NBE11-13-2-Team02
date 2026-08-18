@@ -4,27 +4,18 @@ import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.groupbuy.entity.GroupBuy;
 import com.gachisa.user.entity.User;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "participation")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Participation {
 
     @Id
@@ -40,29 +31,47 @@ public class Participation {
     private User user;
 
     @Column(nullable = false)
-    private int quantity;
+    private Integer quantity;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ParticipationStatus status;
 
-    @Column(nullable = false)
+    @Column(name = "participated_at", nullable = false)
     private LocalDateTime participatedAt;
 
     @Builder
-    private Participation(GroupBuy groupBuy, User user, int quantity, ParticipationStatus status,
-                           LocalDateTime participatedAt) {
+    private Participation(GroupBuy groupBuy, User user, Integer quantity) {
         this.groupBuy = groupBuy;
         this.user = user;
         this.quantity = quantity;
-        this.status = status;
-        this.participatedAt = participatedAt;
+        this.status = ParticipationStatus.PARTICIPATING;
+        this.participatedAt = LocalDateTime.now();
     }
 
-    public void changeStatus(ParticipationStatus newStatus) {
-        if (this.status == ParticipationStatus.CONFIRMED && newStatus == ParticipationStatus.CANCELLED) {
-            throw new CustomException(ErrorCode.CANNOT_CANCEL_CONFIRMED);
+    /** 결제 완료 콜백에서 호출 (강한 동기화: payment 처리와 같은 트랜잭션 내에서 호출되어야 함) */
+    public void confirm() {
+        this.status = ParticipationStatus.CONFIRMED;
+    }
+
+    /** "참여중" 상태에서만 직접 취소 가능. 확정 이후는 cancel()이 아니라 refund()로만 전환된다. */
+    public void cancel() {
+        if (status != ParticipationStatus.PARTICIPATING) {
+            throw new CustomException(ErrorCode.PARTICIPATION_NOT_CANCELABLE);
         }
-        this.status = newStatus;
+        this.status = ParticipationStatus.CANCELLED;
+    }
+
+    /** 확정 이후(배송 전 취소 or 배송 후 반품) 환불 처리 시 결제 담당 모듈에서 호출 */
+    public void refund() {
+        this.status = ParticipationStatus.REFUNDED;
+    }
+
+    public boolean isOwnedBy(Long userId) {
+        return this.user.getId().equals(userId);
+    }
+
+    public boolean isCancelable() {
+        return this.status == ParticipationStatus.PARTICIPATING;
     }
 }
