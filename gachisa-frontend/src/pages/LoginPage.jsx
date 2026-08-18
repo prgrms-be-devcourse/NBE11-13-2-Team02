@@ -49,7 +49,7 @@ export default function LoginPage() {
         px: 2,
       }}
     >
-      <Paper sx={{ p: 5, width: 420, borderRadius: 4 }} elevation={0} variant="outlined">
+      <Paper sx={{ p: 5, width: 440, borderRadius: 4 }} elevation={0} variant="outlined">
         <Logo size={36} textVariant="h5" />
         <Typography color="text.secondary" sx={{ mt: 1.5, mb: 3 }}>
           로그인하고 공동구매에 참여해보세요

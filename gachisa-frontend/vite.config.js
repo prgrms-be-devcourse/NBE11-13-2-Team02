@@ -11,6 +11,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      // 상품 이미지 등 백엔드가 /images/** 로 서빙하는 정적 파일
+      '/images': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
 })
