@@ -9,6 +9,8 @@ import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.order.service.OrderService;
 import com.gachisa.order.dto.OrderCreateCommand;
+import com.gachisa.order.dto.OrderResponse;
+import com.gachisa.order.entity.DeliveryStatus;
 import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.entity.PaymentAttempt;
@@ -54,9 +56,13 @@ class PaymentRecoveryStateServiceTest {
         given(timeProvider.now()).willReturn(NOW);
         given(participationService.getPaymentInfo(10L))
                 .willReturn(new ParticipationPaymentInfo(10L, 20L, 30L, 1, false));
+        given(orderService.createOrderIfAbsent(new OrderCreateCommand(10L, 1L, 20L)))
+                .willReturn(new OrderResponse(
+                        100L, 10L, 1L, DeliveryStatus.PREPARING, NOW, NOW));
 
-        stateService.apply(2L, result("DONE"));
+        var response = stateService.apply(2L, result("DONE"));
 
+        assertThat(response.orderId()).isEqualTo(100L);
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.PAID);
         verify(participationService).confirmPayment(10L);

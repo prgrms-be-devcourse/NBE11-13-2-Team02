@@ -5,6 +5,7 @@ import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.util.TimeProvider;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.order.dto.OrderCreateCommand;
+import com.gachisa.order.dto.OrderResponse;
 import com.gachisa.order.service.OrderService;
 import com.gachisa.payment.client.PgClient.PgConfirmationResult;
 import com.gachisa.payment.dto.PaymentConfirmRequest;
@@ -41,7 +42,10 @@ public class PaymentConfirmationStateService {
         validateRequest(payment, attempt, request);
 
         if (attempt.getStatus() == PaymentAttemptStatus.PAID) {
-            return ConfirmationPreparation.existing(payment, attempt);
+            ParticipationPaymentInfo participation =
+                    participationService.getPaymentInfo(payment.getParticipationId());
+            OrderResponse order = createOrder(payment, participation);
+            return ConfirmationPreparation.existing(payment, attempt, order.orderId());
         }
         if (attempt.getStatus() == PaymentAttemptStatus.PROCESSING) {
             if (!request.paymentKey().equals(attempt.getPgPaymentKey())) {
@@ -70,7 +74,10 @@ public class PaymentConfirmationStateService {
         Payment payment = target.payment();
         PaymentAttempt attempt = target.attempt();
         if (attempt.getStatus() == PaymentAttemptStatus.PAID) {
-            return PaymentResponse.from(payment, attempt);
+            ParticipationPaymentInfo participation =
+                    participationService.getPaymentInfo(payment.getParticipationId());
+            OrderResponse order = createOrder(payment, participation);
+            return PaymentResponse.from(payment, attempt, order.orderId());
         }
         if (payment.getStatus() != PaymentStatus.READY
                 || attempt.getStatus() != PaymentAttemptStatus.PROCESSING
@@ -85,9 +92,13 @@ public class PaymentConfirmationStateService {
         participationService.confirmPayment(payment.getParticipationId());
         payment.complete(timeProvider.now());
         attempt.complete(timeProvider.now());
-        orderService.createOrderIfAbsent(new OrderCreateCommand(
+        OrderResponse order = createOrder(payment, participation);
+        return PaymentResponse.from(payment, attempt, order.orderId());
+    }
+
+    private OrderResponse createOrder(Payment payment, ParticipationPaymentInfo participation) {
+        return orderService.createOrderIfAbsent(new OrderCreateCommand(
                 payment.getParticipationId(), payment.getId(), participation.userId()));
-        return PaymentResponse.from(payment, attempt);
     }
 
     @Transactional
@@ -152,6 +163,14 @@ public class PaymentConfirmationStateService {
                     attempt.getId(), attempt.getPgPaymentKey(), attempt.getPgOrderId(), payment.getAmount(),
                     attempt.getPgIdempotencyKey(), attempt.getPaymentMethod(), false,
                     PaymentResponse.from(payment, attempt)
+            );
+        }
+
+        private static ConfirmationPreparation existing(Payment payment, PaymentAttempt attempt, Long orderId) {
+            return new ConfirmationPreparation(
+                    attempt.getId(), attempt.getPgPaymentKey(), attempt.getPgOrderId(), payment.getAmount(),
+                    attempt.getPgIdempotencyKey(), attempt.getPaymentMethod(), false,
+                    PaymentResponse.from(payment, attempt, orderId)
             );
         }
     }

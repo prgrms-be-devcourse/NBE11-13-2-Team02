@@ -10,6 +10,8 @@ import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.queue.service.QueueService;
 import com.gachisa.order.service.OrderService;
 import com.gachisa.order.dto.OrderCreateCommand;
+import com.gachisa.order.dto.OrderResponse;
+import com.gachisa.order.entity.DeliveryStatus;
 import com.gachisa.payment.client.PgClient.PgConfirmationResult;
 import com.gachisa.payment.dto.PaymentConfirmRequest;
 import com.gachisa.payment.entity.Payment;
@@ -95,12 +97,19 @@ class PaymentConfirmationStateServiceTest {
         given(attemptRepository.findByIdForUpdate(2L)).willReturn(Optional.of(attempt));
         given(participationService.getPaymentInfo(10L))
                 .willReturn(new ParticipationPaymentInfo(10L, 20L, 30L, 1, true));
+        given(orderService.createOrderIfAbsent(new OrderCreateCommand(10L, 1L, 20L)))
+                .willReturn(orderResponse());
         given(timeProvider.now()).willReturn(NOW);
 
-        stateService.complete(2L, new PgConfirmationResult(
+        var response = stateService.complete(2L, new PgConfirmationResult(
                 "payment-key", "gachisa_order", 12_600, PaymentMethod.CARD));
 
+        assertThat(response.orderId()).isEqualTo(100L);
         verify(orderService).createOrderIfAbsent(new OrderCreateCommand(10L, 1L, 20L));
+    }
+
+    private OrderResponse orderResponse() {
+        return new OrderResponse(100L, 10L, 1L, DeliveryStatus.PREPARING, NOW, NOW);
     }
 
     private Payment payment() {
