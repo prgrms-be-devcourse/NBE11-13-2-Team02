@@ -24,7 +24,6 @@ export default function GroupBuyCreatePage() {
 
   const [form, setForm] = useState({
     productId: '',
-    productOptionId: '',
     targetCount: 10,
     discountRatePercent: 10,
     openAt: '',
@@ -52,7 +51,6 @@ export default function GroupBuyCreatePage() {
     try {
       const { data } = await createGroupBuy({
         productId: Number(form.productId),
-        productOptionId: Number(form.productOptionId),
         targetCount: Number(form.targetCount),
         discountRate: Number(form.discountRatePercent) / 100,
         openAt: form.openAt ? new Date(form.openAt).toISOString() : null,
@@ -86,29 +84,13 @@ export default function GroupBuyCreatePage() {
               select
               label="상품 선택"
               value={form.productId}
-              onChange={(e) => setForm((prev) => ({ ...prev, productId: e.target.value, productOptionId: '' }))}
+              onChange={handleChange('productId')}
               required
               fullWidth
             >
               {products.map((p) => (
                 <MenuItem key={p.id} value={p.id}>
-                  {p.name}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              select
-              label="옵션 선택"
-              value={form.productOptionId}
-              onChange={handleChange('productOptionId')}
-              required
-              fullWidth
-              disabled={!selectedProduct}
-            >
-              {(selectedProduct?.options ?? []).map((opt) => (
-                <MenuItem key={opt.id} value={opt.id}>
-                  {opt.optionName} / {opt.optionValue} (재고 {opt.stock})
+                  {p.name} (재고 {p.stock})
                 </MenuItem>
               ))}
             </TextField>

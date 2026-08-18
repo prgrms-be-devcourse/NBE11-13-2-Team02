@@ -1,0 +1,35 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: gachisa-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: gachisa
+      MYSQL_USER: gachisa
+      MYSQL_PASSWORD: gachisa1234
+      MYSQL_ROOT_PASSWORD: gachisa1234
+      TZ: Asia/Seoul
+    ports:
+      - '3306:3306'
+    volumes:
+      - gachisa-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-ugachisa', '-pgachisa1234']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: gachisa-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  gachisa-mysql-data:
