@@ -3,7 +3,6 @@ package com.gachisa.groupbuy.entity;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.product.entity.Product;
-import com.gachisa.product.entity.ProductOption;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -26,10 +25,6 @@ public class GroupBuy {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "product_option_id", nullable = false)
-    private ProductOption productOption;
 
     @Column(name = "target_count", nullable = false)
     private Integer targetCount;
@@ -54,14 +49,13 @@ public class GroupBuy {
     private Long sellerId;
 
     @Builder
-    private GroupBuy(Product product, ProductOption productOption, Integer targetCount,
+    private GroupBuy(Product product, Integer targetCount,
                      BigDecimal discountRate, LocalDateTime openAt, LocalDateTime deadline,
                      Long sellerId) {
         if (deadline.isBefore(openAt)) {
             throw new CustomException(ErrorCode.GROUP_BUY_INVALID_PERIOD);
         }
         this.product = product;
-        this.productOption = productOption;
         this.targetCount = targetCount;
         this.currentCount = 0;
         this.discountRate = discountRate;
