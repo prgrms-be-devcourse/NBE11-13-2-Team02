@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -34,7 +34,8 @@ const formatClock = (totalSeconds) => {
 export default function GroupBuyDetailPage() {
   const { groupBuyId } = useParams()
   const navigate = useNavigate()
-  const { isBuyer, isSeller, user } = useAuth()
+  const location = useLocation()
+  const { isBuyer, isSeller, isAuthenticated, user } = useAuth()
 
   const [groupBuy, setGroupBuy] = useState(null)
   const [product, setProduct] = useState(null)
@@ -122,6 +123,7 @@ export default function GroupBuyDetailPage() {
   const displayLabel = isRecruiting && isFull ? '모집완료' : meta.label
   const displayColor = isRecruiting && isFull ? 'success' : meta.color
   const canParticipate = isBuyer && isRecruiting
+  const needsLoginToParticipate = !isAuthenticated && isRecruiting
   const canCancel = isSeller && isRecruiting && (!product?.sellerId || product.sellerId === user?.id)
 
   const bullets = [
@@ -255,6 +257,20 @@ export default function GroupBuyDetailPage() {
                   {myParticipation ? '참여완료' : isFull ? '모집 완료' : '참여 신청하기'}
                 </Button>
               </Stack>
+            )}
+
+            {needsLoginToParticipate && (
+              <Button
+                variant="contained"
+                color={isFull ? 'inherit' : 'secondary'}
+                size="large"
+                fullWidth
+                disabled={isFull}
+                sx={{ mt: 3, py: 1.4 }}
+                onClick={() => navigate('/login', { state: { from: location } })}
+              >
+                {isFull ? '모집 완료' : '로그인하고 참여하기'}
+              </Button>
             )}
 
             {canCancel && (
