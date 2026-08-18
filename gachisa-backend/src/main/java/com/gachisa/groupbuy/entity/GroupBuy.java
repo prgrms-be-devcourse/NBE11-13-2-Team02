@@ -1,29 +1,22 @@
 package com.gachisa.groupbuy.entity;
 
+import com.gachisa.global.exception.CustomException;
+import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.product.entity.Product;
 import com.gachisa.product.entity.ProductOption;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "group_buy")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class GroupBuy {
 
     @Id
@@ -38,47 +31,95 @@ public class GroupBuy {
     @JoinColumn(name = "product_option_id", nullable = false)
     private ProductOption productOption;
 
-    @Column(nullable = false)
-    private int targetCount;
+    @Column(name = "target_count", nullable = false)
+    private Integer targetCount;
 
-    @Column(nullable = false)
-    private int currentCount;
+    @Column(name = "current_count", nullable = false)
+    private Integer currentCount;
 
-    @Column(nullable = false, precision = 5, scale = 2)
+    @Column(name = "discount_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal discountRate;
 
-    @Column(nullable = false)
+    @Column(name = "open_at", nullable = false)
     private LocalDateTime openAt;
 
-    @Column(nullable = false)
+    @Column(name = "deadline", nullable = false)
     private LocalDateTime deadline;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private GroupBuyStatus status;
 
+    @Column(name = "seller_id", nullable = false)
+    private Long sellerId;
+
     @Builder
-    private GroupBuy(Product product, ProductOption productOption, int targetCount, int currentCount,
-                      BigDecimal discountRate, LocalDateTime openAt, LocalDateTime deadline, GroupBuyStatus status) {
+    private GroupBuy(Product product, ProductOption productOption, Integer targetCount,
+                     BigDecimal discountRate, LocalDateTime openAt, LocalDateTime deadline,
+                     Long sellerId) {
+        if (deadline.isBefore(openAt)) {
+            throw new CustomException(ErrorCode.GROUP_BUY_INVALID_PERIOD);
+        }
         this.product = product;
         this.productOption = productOption;
         this.targetCount = targetCount;
-        this.currentCount = currentCount;
+        this.currentCount = 0;
         this.discountRate = discountRate;
         this.openAt = openAt;
         this.deadline = deadline;
-        this.status = status;
+        this.sellerId = sellerId;
+        this.status = GroupBuyStatus.RECRUITING;
     }
 
-    public void increaseCurrentCount(int quantity) {
+    /**
+     * 참여 신청 시 인원을 예약한다.
+     * 반드시 비관적 락으로 조회된 인스턴스에서 호출되어야 동시성이 보장된다.
+     * (GroupBuyRepository.findByIdForUpdate 참고)
+     */
+    public void reserve(int quantity) {
+        if (status != GroupBuyStatus.RECRUITING) {
+            throw new CustomException(ErrorCode.GROUP_BUY_CLOSED);
+        }
+        if (currentCount + quantity > targetCount) {
+            throw new CustomException(ErrorCode.GROUP_BUY_FULL);
+        }
         this.currentCount += quantity;
     }
 
-    public void decreaseCurrentCount(int quantity) {
-        this.currentCount -= quantity;
+    /** 참여 취소 시 예약 인원을 롤백한다. 락 하에서 호출되어야 한다. */
+    public void release(int quantity) {
+        this.currentCount = Math.max(0, this.currentCount - quantity);
     }
 
-    public void changeStatus(GroupBuyStatus status) {
-        this.status = status;
+    public void cancelBySeller() {
+        if (status != GroupBuyStatus.RECRUITING) {
+            throw new CustomException(ErrorCode.GROUP_BUY_CANNOT_CANCEL);
+        }
+        this.status = GroupBuyStatus.CANCELLED;
+    }
+
+    /** 마감 배치에서 목표 달성 여부에 따라 호출 */
+    public void settle() {
+        if (status != GroupBuyStatus.RECRUITING) {
+            return; // 이미 처리됨 (배치 재실행에 대한 멱등성 보장)
+        }
+        this.status = (currentCount >= targetCount) ? GroupBuyStatus.ACHIEVED : GroupBuyStatus.NOT_ACHIEVED;
+    }
+
+    public void markSettled() {
+        this.status = GroupBuyStatus.SETTLED;
+    }
+
+    public boolean isOwnedBy(Long sellerId) {
+        return this.sellerId.equals(sellerId);
+    }
+
+    public boolean isDeadlinePassed(LocalDateTime now) {
+        return !now.isBefore(this.deadline);
+    }
+
+    public double getProgressRate() {
+        if (targetCount == 0) return 0.0;
+        return Math.round((currentCount * 1000.0 / targetCount)) / 10.0; // 소수 첫째자리
     }
 }

@@ -39,6 +39,28 @@ public class Order {
     @Column(nullable = false)
     private DeliveryStatus deliveryStatus;
 
+    @Column(length = 30)
+    private String recipientName;
+
+    @Column(length = 20)
+    private String recipientPhone;
+
+    @Column(length = 10)
+    private String zipCode;
+
+    @Column(length = 200)
+    private String address;
+
+    @Column(length = 200)
+    private String addressDetail;
+
+    @Column(length = 200)
+    private String deliveryRequest;
+
+    private LocalDateTime shippingStartedAt;
+
+    private LocalDateTime deliveredAt;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -66,5 +88,42 @@ public class Order {
         }
         deliveryStatus = newStatus;
         updatedAt = changedAt;
+    }
+
+    public void registerDeliveryAddress(String recipientName, String recipientPhone,
+                                        String zipCode, String address, String addressDetail,
+                                        String deliveryRequest, LocalDateTime registeredAt) {
+        if (deliveryStatus != DeliveryStatus.PREPARING || this.address != null) {
+            throw new CustomException(ErrorCode.DELIVERY_ADDRESS_ALREADY_REGISTERED);
+        }
+
+        this.recipientName = recipientName;
+        this.recipientPhone = recipientPhone;
+        this.zipCode = zipCode;
+        this.address = address;
+        this.addressDetail = addressDetail;
+        this.deliveryRequest = deliveryRequest;
+        this.deliveryStatus = DeliveryStatus.SHIPPING;
+        this.shippingStartedAt = registeredAt;
+        this.updatedAt = registeredAt;
+    }
+
+    public void changeDeliveryStatusByAdmin(DeliveryStatus newStatus, LocalDateTime changedAt) {
+        if (newStatus != DeliveryStatus.PREPARING && address == null) {
+            throw new CustomException(ErrorCode.DELIVERY_ADDRESS_REQUIRED);
+        }
+
+        deliveryStatus = newStatus;
+        updatedAt = changedAt;
+
+        if (newStatus == DeliveryStatus.PREPARING) {
+            shippingStartedAt = null;
+            deliveredAt = null;
+            return;
+        }
+        if (shippingStartedAt == null) {
+            shippingStartedAt = changedAt;
+        }
+        deliveredAt = newStatus == DeliveryStatus.DELIVERED ? changedAt : null;
     }
 }

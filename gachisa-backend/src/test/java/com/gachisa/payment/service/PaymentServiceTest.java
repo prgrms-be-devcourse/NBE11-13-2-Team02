@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.util.TimeProvider;
+import com.gachisa.order.service.OrderService;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.payment.client.PgClient;
@@ -53,13 +54,14 @@ class PaymentServiceTest {
     @Mock PaymentConfirmationStateService confirmationStateService;
     @Mock TimeProvider timeProvider;
     @Mock QueueService queueService;
+    @Mock OrderService orderService;
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
         paymentService = new PaymentService(paymentRepository, attemptRepository,
                 participationService, amountCalculator, pgClient,
-                confirmationStateService, timeProvider, queueService);
+                confirmationStateService, timeProvider, queueService, orderService);
     }
 
     @Test
