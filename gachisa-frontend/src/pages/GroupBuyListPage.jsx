@@ -1,82 +1,258 @@
-import { useEffect, useState } from 'react'
+// 참고: GroupBuyResponse에는 productId/원가 필드가 없어 카드에 정가·할인가를 정확히 표시할 수
+// 없다. 상품명이 겹치지 않는다는 전제로 상품 목록(GET /products)을 한 번 불러와 이름으로 매칭해
+// best-effort로 가격을 보여주고, 매칭 실패 시 가격 없이 할인율/진행률만 보여준다.
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Grid from '@mui/material/Grid'
+import Card from '@mui/material/Card'
+import CardActionArea from '@mui/material/CardActionArea'
+import CardContent from '@mui/material/CardContent'
+import Typography from '@mui/material/Typography'
+import Chip from '@mui/material/Chip'
+import LinearProgress from '@mui/material/LinearProgress'
+import Alert from '@mui/material/Alert'
+import Stack from '@mui/material/Stack'
+import Pagination from '@mui/material/Pagination'
+import StorefrontIcon from '@mui/icons-material/Storefront'
 import { getGroupBuyList } from '../api/groupBuyApi'
-import GroupBuyCard from '../components/GroupBuyCard.jsx'
+import { getProducts } from '../api/productApi'
+import { getCategories } from '../api/categoryApi'
+import { getErrorMessage } from '../api/errorMessage'
+import LoadingScreen from '../components/LoadingScreen.jsx'
+import { GROUP_BUY_STATUS, formatPrice, statusMeta } from '../utils/statusMeta'
 
-const STATUS_TABS = [
-  { label: '모집중', value: '모집중' },
-  { label: '전체', value: null },
-]
+const PAGE_SIZE = 9
 
-/** GB-02. 공동구매 목록 조회 */
 export default function GroupBuyListPage() {
-  const [status, setStatus] = useState('모집중')
+  const [searchParams] = useSearchParams()
   const [page, setPage] = useState(0)
-  const [data, setData] = useState({ content: [], totalPages: 0 })
+  const [result, setResult] = useState({ content: [], totalPages: 0 })
+  const [productsByName, setProductsByName] = useState({})
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState('')
+  const [sort, setSort] = useState('deadline') // deadline: 마감임박순, popular: 인기순
+
+  useEffect(() => {
+    getCategories()
+      .then(({ data }) => setCategories(data ?? []))
+      .catch(() => setCategories([]))
+    getProducts()
+      .then(({ data }) => {
+        const map = {}
+        ;(data ?? []).forEach((p) => {
+          map[p.name] = p
+        })
+        setProductsByName(map)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    setError(null)
-
-    getGroupBuyList({ status, page, size: 12 })
+    setError('')
+    getGroupBuyList({ status: 'RECRUITING', page, size: PAGE_SIZE })
       .then(({ data }) => {
-        if (!cancelled) setData(data)
+        if (!cancelled) setResult(data)
       })
-      .catch(() => {
-        if (!cancelled) setError('목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
+      .catch((err) => {
+        if (!cancelled) setError(getErrorMessage(err, '공동구매 목록을 불러오지 못했습니다.'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
+    return () => {
+      cancelled = true
+    }
+  }, [page])
 
-    return () => { cancelled = true }
-  }, [status, page])
+  const sorted = useMemo(() => {
+    const copy = [...(result.content ?? [])]
+    if (sort === 'popular') {
+      copy.sort((a, b) => (b.currentCount ?? 0) - (a.currentCount ?? 0))
+    } else {
+      copy.sort((a, b) => new Date(a.deadline ?? 0) - new Date(b.deadline ?? 0))
+    }
+    return copy
+  }, [result, sort])
+
+  const activeKeyword = searchParams.get('keyword')
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: 24 }}>
-      <h1 style={{ marginBottom: 16 }}>공동구매</h1>
+    <Box sx={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+      <Box sx={{ width: 180, flexShrink: 0, display: { xs: 'none', md: 'block' } }}>
+        <Typography variant="overline" color="text.secondary">
+          카테고리
+        </Typography>
+        <Stack spacing={1} sx={{ mt: 1, mb: 3 }}>
+          <Typography variant="body2" fontWeight={700} color="primary.main">
+            전체
+          </Typography>
+          {categories.map((c) => (
+            <Typography
+              key={c.id}
+              component={Link}
+              to={`/products?categoryId=${c.id}`}
+              variant="body2"
+              color="text.secondary"
+              sx={{ textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
+            >
+              {c.name}
+            </Typography>
+          ))}
+        </Stack>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.label}
-            onClick={() => { setStatus(tab.value); setPage(0) }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 20,
-              border: '1px solid #ddd',
-              background: status === tab.value ? '#e0522f' : '#fff',
-              color: status === tab.value ? '#fff' : '#333',
-              cursor: 'pointer',
-            }}
+        <Typography variant="overline" color="text.secondary">
+          정렬
+        </Typography>
+        <Stack spacing={1} sx={{ mt: 1 }}>
+          <Typography
+            variant="body2"
+            fontWeight={sort === 'deadline' ? 700 : 400}
+            color={sort === 'deadline' ? 'primary.main' : 'text.secondary'}
+            onClick={() => setSort('deadline')}
+            sx={{ cursor: 'pointer' }}
           >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+            마감임박순
+          </Typography>
+          <Typography
+            variant="body2"
+            fontWeight={sort === 'popular' ? 700 : 400}
+            color={sort === 'popular' ? 'primary.main' : 'text.secondary'}
+            onClick={() => setSort('popular')}
+            sx={{ cursor: 'pointer' }}
+          >
+            인기순
+          </Typography>
+        </Stack>
+      </Box>
 
-      {loading && <p>불러오는 중...</p>}
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <Typography variant="h5" fontWeight={800} sx={{ mb: 3 }}>
+          진행중인 공동구매
+        </Typography>
 
-      {!loading && !error && data.content.length === 0 && (
-        <p style={{ color: '#888' }}>진행중인 공동구매가 없어요.</p>
-      )}
+        {activeKeyword && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            &apos;{activeKeyword}&apos; 검색은 상품 탭에서 확인해주세요.
+          </Alert>
+        )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-        {data.content.map((gb) => (
-          <GroupBuyCard key={gb.groupBuyId} groupBuy={gb} />
-        ))}
-      </div>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-      {data.totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 24 }}>
-          <button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>이전</button>
-          <span>{page + 1} / {data.totalPages}</span>
-          <button disabled={page + 1 >= data.totalPages} onClick={() => setPage((p) => p + 1)}>다음</button>
-        </div>
-      )}
-    </div>
+        {loading ? (
+          <LoadingScreen />
+        ) : sorted.length === 0 ? (
+          <Typography color="text.secondary">진행 중인 공동구매가 없습니다.</Typography>
+        ) : (
+          <>
+            <Grid container spacing={2.5}>
+              {sorted.map((gb) => {
+                const meta = statusMeta(GROUP_BUY_STATUS, gb.status)
+                const target = gb.targetCount ?? 0
+                const current = gb.currentCount ?? 0
+                const progress = target > 0 ? Math.min(100, (current / target) * 100) : 0
+                const product = productsByName[gb.productName]
+                const discounted =
+                  product && typeof gb.discountRate === 'number'
+                    ? Math.round(product.basePrice * (1 - gb.discountRate))
+                    : null
+
+                const daysLeft = Math.ceil((new Date(gb.deadline) - Date.now()) / 86400000)
+                const isRecruiting = gb.status === '모집중'
+
+                return (
+                  <Grid item xs={12} sm={6} lg={4} key={gb.groupBuyId}>
+                    <Card>
+                      <CardActionArea component={Link} to={`/group-buys/${gb.groupBuyId}`}>
+                        <Box
+                          sx={{
+                            height: 110,
+                            bgcolor: 'primary.light',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <StorefrontIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                        </Box>
+                        <CardContent>
+                          <Typography variant="subtitle1" fontWeight={700} noWrap gutterBottom>
+                            {gb.productName}
+                          </Typography>
+
+                          <Stack direction="row" spacing={1} alignItems="baseline">
+                            {discounted != null && (
+                              <Typography variant="h6" fontWeight={800}>
+                                {formatPrice(discounted)}
+                              </Typography>
+                            )}
+                            {product && (
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ textDecoration: 'line-through' }}
+                              >
+                                {formatPrice(product.basePrice)}
+                              </Typography>
+                            )}
+                            {typeof gb.discountRate === 'number' && (
+                              <Chip
+                                size="small"
+                                label={`${Math.round(gb.discountRate * 100)}%`}
+                                sx={{ bgcolor: 'secondary.light', color: 'secondary.dark', fontWeight: 700 }}
+                              />
+                            )}
+                          </Stack>
+
+                          <Box sx={{ mt: 1.5 }}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={progress}
+                              color={progress >= 100 ? 'success' : 'primary'}
+                              sx={{ height: 6, borderRadius: 3 }}
+                            />
+                          </Box>
+
+                          <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {current}/{target}명 참여
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              fontWeight={700}
+                              color={isRecruiting ? 'secondary.dark' : `${meta.color}.main`}
+                            >
+                              {isRecruiting ? (daysLeft > 0 ? `D-${daysLeft}` : '마감임박') : meta.label}
+                            </Typography>
+                          </Stack>
+                        </CardContent>
+                      </CardActionArea>
+                    </Card>
+                  </Grid>
+                )
+              })}
+            </Grid>
+
+            {result.totalPages > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <Pagination
+                  page={page + 1}
+                  count={result.totalPages}
+                  onChange={(_, value) => setPage(value - 1)}
+                  color="primary"
+                />
+              </Box>
+            )}
+          </>
+        )}
+      </Box>
+    </Box>
   )
 }
