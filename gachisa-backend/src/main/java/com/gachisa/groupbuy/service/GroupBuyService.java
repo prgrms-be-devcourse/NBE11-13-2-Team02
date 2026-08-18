@@ -11,8 +11,6 @@ import com.gachisa.groupbuy.entity.GroupBuy;
 import com.gachisa.groupbuy.entity.GroupBuyStatus;
 import com.gachisa.groupbuy.repository.GroupBuyRepository;
 import com.gachisa.product.entity.Product;
-import com.gachisa.product.entity.ProductOption;
-import com.gachisa.product.repository.ProductOptionRepository;
 import com.gachisa.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,19 +27,15 @@ public class GroupBuyService {
 
     private final GroupBuyRepository groupBuyRepository;
     private final ProductRepository productRepository;
-    private final ProductOptionRepository productOptionRepository;
 
     /** GB-01 */
     @Transactional
     public GroupBuyResponse createGroupBuy(Long sellerId, GroupBuyCreateRequest request) {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
-        ProductOption option = productOptionRepository.findById(request.getProductOptionId())
-                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_OPTION_NOT_FOUND));
 
         GroupBuy groupBuy = GroupBuy.builder()
                 .product(product)
-                .productOption(option)
                 .targetCount(request.getTargetCount())
                 .discountRate(request.getDiscountRate())
                 .openAt(request.getOpenAt())
