@@ -44,19 +44,19 @@ export default function AppLayout() {
             <Logo size={32} />
           </Box>
 
+          <Box sx={{ flexGrow: 1 }} />
+
           <Box
             component="form"
             onSubmit={handleSearchSubmit}
             sx={{
-              flexGrow: 1,
-              display: 'flex',
+              display: { xs: 'none', sm: 'flex' },
               alignItems: 'center',
               bgcolor: 'grey.100',
               borderRadius: 999,
               px: 2,
               py: 0.6,
-              maxWidth: 480,
-              ml: { xs: 1, sm: 4 },
+              width: 280,
             }}
           >
             <SearchIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
@@ -68,8 +68,6 @@ export default function AppLayout() {
               sx={{ fontSize: 14 }}
             />
           </Box>
-
-          <Box sx={{ flexGrow: 1 }} />
 
           <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
             <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.light', color: 'primary.main' }}>
@@ -83,8 +81,6 @@ export default function AppLayout() {
               </Typography>
             </MenuItem>
             <Divider />
-            <MenuItem onClick={() => goTo('/')}>공동구매</MenuItem>
-            <MenuItem onClick={() => goTo('/products')}>상품</MenuItem>
             <MenuItem onClick={() => goTo('/my/participations')}>내 참여내역</MenuItem>
             <MenuItem onClick={() => goTo('/my/orders')}>내 주문</MenuItem>
             <MenuItem onClick={() => goTo('/my/page')}>마이페이지</MenuItem>

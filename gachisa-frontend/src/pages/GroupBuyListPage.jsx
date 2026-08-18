@@ -166,13 +166,19 @@ export default function GroupBuyListPage() {
 
                 const daysLeft = Math.ceil((new Date(gb.deadline) - Date.now()) / 86400000)
                 const isRecruiting = gb.status === '모집중'
+                const isFull = target > 0 && current >= target
+                // 정산 배치가 아직 안 돌아서 백엔드 status가 '모집중'으로 남아있어도
+                // 목표 인원에 도달했으면 프론트에서 선제적으로 "모집완료"로 보여준다.
+                const displayLabel = isRecruiting && isFull ? '모집완료' : isRecruiting ? null : meta.label
+                const displayColor = isRecruiting && isFull ? 'success' : meta.color
 
                 return (
                   <Grid item xs={12} sm={6} lg={4} key={gb.groupBuyId}>
-                    <Card>
+                    <Card sx={isFull ? { filter: 'grayscale(0.4)', opacity: 0.85 } : undefined}>
                       <CardActionArea component={Link} to={`/group-buys/${gb.groupBuyId}`}>
                         <Box
                           sx={{
+                            position: 'relative',
                             height: 110,
                             bgcolor: 'primary.light',
                             display: 'flex',
@@ -181,6 +187,14 @@ export default function GroupBuyListPage() {
                           }}
                         >
                           <StorefrontIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                          {isFull && (
+                            <Chip
+                              size="small"
+                              label="모집완료"
+                              color="success"
+                              sx={{ position: 'absolute', top: 8, left: 8, fontWeight: 700, color: '#fff' }}
+                            />
+                          )}
                         </Box>
                         <CardContent>
                           <Typography variant="subtitle1" fontWeight={700} noWrap gutterBottom>
@@ -224,12 +238,8 @@ export default function GroupBuyListPage() {
                             <Typography variant="caption" color="text.secondary">
                               {current}/{target}명 참여
                             </Typography>
-                            <Typography
-                              variant="caption"
-                              fontWeight={700}
-                              color={isRecruiting ? 'secondary.dark' : `${meta.color}.main`}
-                            >
-                              {isRecruiting ? (daysLeft > 0 ? `D-${daysLeft}` : '마감임박') : meta.label}
+                            <Typography variant="caption" fontWeight={700} color={`${displayColor}.main`}>
+                              {displayLabel ?? (daysLeft > 0 ? `D-${daysLeft}` : '마감임박')}
                             </Typography>
                           </Stack>
                         </CardContent>
