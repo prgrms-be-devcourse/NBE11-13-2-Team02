@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { getGroupBuyDetail } from '../api/groupBuyApi'
 import { participate } from '../api/participationApi'
 import { useCountdown } from '../hooks/useCountdown'
 import { useParticipationCount } from '../hooks/useParticipationCount'
+import PaymentButton from '../components/PaymentButton.jsx'
 
 /**
  * GB-03 (상세 조회) + PT-01 (참여) 화면.
@@ -11,6 +12,7 @@ import { useParticipationCount } from '../hooks/useParticipationCount'
  */
 export default function GroupBuyDetailPage() {
   const { groupBuyId } = useParams()
+  const [searchParams] = useSearchParams()
 
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -19,7 +21,10 @@ export default function GroupBuyDetailPage() {
   const [quantity, setQuantity] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [participateError, setParticipateError] = useState(null)
-  const [participateSuccess, setParticipateSuccess] = useState(false)
+  const [participationId, setParticipationId] = useState(
+    searchParams.get('participationId'),
+  )
+  const demoMode = searchParams.get('demo') === 'true'
 
   // 폴링으로 최신 참여 인원을 계속 받아온다 (초기값은 상세 조회 결과로 세팅)
   const liveCount = useParticipationCount(groupBuyId)
@@ -55,8 +60,8 @@ export default function GroupBuyDetailPage() {
     setSubmitting(true)
     setParticipateError(null)
     try {
-      await participate(groupBuyId, quantity)
-      setParticipateSuccess(true)
+      const response = await participate(groupBuyId, quantity)
+      setParticipationId(response.data.participationId)
     } catch (err) {
       const message = err?.response?.data?.message
       if (err?.response?.status === 409) {
@@ -105,7 +110,7 @@ export default function GroupBuyDetailPage() {
           </label>
           <button
             onClick={handleParticipate}
-            disabled={submitting || participateSuccess}
+            disabled={submitting || Boolean(participationId)}
             style={{
               display: 'block',
               width: '100%',
@@ -116,14 +121,23 @@ export default function GroupBuyDetailPage() {
               border: 'none',
               borderRadius: 8,
               cursor: 'pointer',
-              opacity: submitting || participateSuccess ? 0.6 : 1,
+              opacity: submitting || participationId ? 0.6 : 1,
             }}
           >
-            {participateSuccess ? '참여 완료' : submitting ? '처리중...' : '참여하기'}
+            {participationId ? '참여 완료' : submitting ? '처리중...' : '참여하기'}
           </button>
           {participateError && <p style={{ color: 'crimson', marginTop: 8 }}>{participateError}</p>}
-          {participateSuccess && <p style={{ color: '#2f9e44', marginTop: 8 }}>참여가 완료됐어요! 마감 후 결과를 확인해주세요.</p>}
+          {participationId && <p style={{ color: '#2f9e44', marginTop: 8 }}>참여가 완료됐어요. 결제를 진행해주세요.</p>}
         </div>
+      )}
+
+      {(participationId || demoMode) && (
+        <PaymentButton
+          groupBuyId={groupBuyId}
+          participationId={participationId}
+          productName={detail.productName}
+          demoMode={demoMode}
+        />
       )}
 
       {(!isRecruiting || isFull) && (
