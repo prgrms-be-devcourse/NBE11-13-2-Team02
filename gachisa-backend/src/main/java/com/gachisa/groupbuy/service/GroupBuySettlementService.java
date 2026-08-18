@@ -8,6 +8,8 @@ import com.gachisa.groupbuy.repository.GroupBuyRepository;
 import com.gachisa.participation.entity.Participation;
 import com.gachisa.participation.entity.ParticipationStatus;
 import com.gachisa.participation.repository.ParticipationRepository;
+import com.gachisa.payment.dto.GroupBuyResultCommand;
+import com.gachisa.payment.service.GroupBuyResultProcessingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,7 @@ public class GroupBuySettlementService {
 
     private final GroupBuyRepository groupBuyRepository;
     private final ParticipationRepository participationRepository;
+    private final GroupBuyResultProcessingService groupBuyResultProcessingService;
 
     @Transactional
     public void settleOne(Long groupBuyId) {
@@ -44,17 +47,19 @@ public class GroupBuySettlementService {
 
         groupBuy.settle(); // RECRUITING -> ACHIEVED / NOT_ACHIEVED
 
-        List<Participation> participants =
-                participationRepository.findByGroupBuy_IdAndStatus(groupBuyId, ParticipationStatus.PARTICIPATING);
+        List<Long> paidParticipationIds = participationRepository
+                .findByGroupBuy_IdAndStatus(groupBuyId, ParticipationStatus.CONFIRMED)
+                .stream()
+                .map(Participation::getId)
+                .toList();
 
-        if (groupBuy.getStatus() == GroupBuyStatus.ACHIEVED) {
-            // TODO(결제 담당자 연동): 실제로는 각 participation에 대해 결제 승인/청구 처리 후 confirm().
-            // 지금은 결제 모듈이 아직 없으므로 바로 확정 처리 (2차 최소 구현).
-            participants.forEach(Participation::confirm);
-        } else {
-            // 목표 미달 -> 전원 환불 (PAY-03)
-            // TODO(결제 담당자 연동): 실제 환불 API 호출 후 refund() 호출하도록 교체
-            participants.forEach(Participation::refund);
+        if (!paidParticipationIds.isEmpty()) {
+            GroupBuyResultCommand.Result result = groupBuy.getStatus() == GroupBuyStatus.ACHIEVED
+                    ? GroupBuyResultCommand.Result.ACHIEVED
+                    : GroupBuyResultCommand.Result.FAILED;
+            groupBuyResultProcessingService.process(
+                    new GroupBuyResultCommand(groupBuyId, result, paidParticipationIds)
+            );
         }
 
         groupBuy.markSettled();
