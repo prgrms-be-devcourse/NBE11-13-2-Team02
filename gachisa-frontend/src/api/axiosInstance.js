@@ -12,6 +12,16 @@ axiosInstance.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  // FormData(파일 업로드) 요청은 인스턴스 기본 'Content-Type: application/json' 헤더를 지우고
+  // 브라우저가 boundary를 포함한 multipart/form-data 헤더를 직접 채우게 둔다.
+  // (수동으로 명시하면 boundary가 빠져 서버에서 파싱이 깨진다.)
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (typeof config.headers.delete === 'function') {
+      config.headers.delete('Content-Type')
+    } else {
+      delete config.headers['Content-Type']
+    }
+  }
   return config
 })
 

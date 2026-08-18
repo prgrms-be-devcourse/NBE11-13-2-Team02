@@ -11,9 +11,10 @@ import MenuItem from '@mui/material/MenuItem'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
 import Select from '@mui/material/Select'
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getErrorMessage } from '../api/errorMessage'
-import { getProduct, updateProduct } from '../api/productApi'
+import { getProduct, updateProduct, updateProductImage } from '../api/productApi'
 import { getCategories } from '../api/categoryApi'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
@@ -30,8 +31,10 @@ export default function ProductEditPage() {
   const { user } = useAuth()
 
   const [product, setProduct] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', basePrice: '', categoryId: '', imageUrl: '' })
+  const [form, setForm] = useState({ name: '', description: '', basePrice: '', stock: '', categoryId: '' })
   const [categories, setCategories] = useState([])
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -46,8 +49,8 @@ export default function ProductEditPage() {
         name: data.name ?? '',
         description: data.description ?? '',
         basePrice: data.basePrice ?? '',
+        stock: data.stock ?? '',
         categoryId: data.categoryId ?? '',
-        imageUrl: data.imageUrl ?? '',
       })
     } catch (err) {
       setError(getErrorMessage(err, '상품 정보를 불러오지 못했습니다.'))
@@ -66,6 +69,16 @@ export default function ProductEditPage() {
       .catch(() => setCategories([]))
   }, [])
 
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(null)
+      return undefined
+    }
+    const url = URL.createObjectURL(imageFile)
+    setImagePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [imageFile])
+
   const handleChange = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const handleSubmit = async (e) => {
@@ -77,9 +90,12 @@ export default function ProductEditPage() {
         name: form.name,
         description: form.description,
         basePrice: Number(form.basePrice),
+        stock: Number(form.stock),
         categoryId: form.categoryId,
-        imageUrl: form.imageUrl || undefined,
       })
+      if (imageFile) {
+        await updateProductImage(productId, imageFile)
+      }
       navigate(`/products/${productId}`)
     } catch (err) {
       setError(getErrorMessage(err, '상품 수정에 실패했습니다.'))
@@ -115,6 +131,43 @@ export default function ProductEditPage() {
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
           <Stack spacing={2}>
             {error && <Alert severity="error">{error}</Alert>}
+
+            <Box>
+              <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+                상품 이미지
+              </Typography>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<AddPhotoAlternateIcon />}
+                sx={{ display: 'flex', width: '100%', height: 160, borderStyle: 'dashed' }}
+              >
+                {imagePreview ? (
+                  <Box
+                    component="img"
+                    src={imagePreview}
+                    alt="미리보기"
+                    sx={{ maxHeight: 150, maxWidth: '100%', objectFit: 'contain' }}
+                  />
+                ) : product?.imageUrl ? (
+                  <Box
+                    component="img"
+                    src={product.imageUrl}
+                    alt={product.name}
+                    sx={{ maxHeight: 150, maxWidth: '100%', objectFit: 'contain' }}
+                  />
+                ) : (
+                  '이미지 파일 선택 (jpg, png, gif, webp)'
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  hidden
+                  onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                />
+              </Button>
+            </Box>
+
             <TextField label="상품명" value={form.name} onChange={handleChange('name')} required fullWidth />
             <TextField
               label="설명"
@@ -133,6 +186,15 @@ export default function ProductEditPage() {
               required
               fullWidth
             />
+            <TextField
+              label="재고"
+              type="number"
+              value={form.stock}
+              onChange={handleChange('stock')}
+              inputProps={{ min: 0 }}
+              required
+              fullWidth
+            />
             <FormControl fullWidth required>
               <InputLabel id="category-select-label">카테고리</InputLabel>
               <Select
@@ -148,13 +210,6 @@ export default function ProductEditPage() {
                 ))}
               </Select>
             </FormControl>
-            <TextField
-              label="이미지 URL"
-              value={form.imageUrl}
-              onChange={handleChange('imageUrl')}
-              fullWidth
-              placeholder="선택 입력"
-            />
             <Button type="submit" variant="contained" size="large" disabled={submitting}>
               {submitting ? '수정 중...' : '수정 완료'}
             </Button>

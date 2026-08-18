@@ -29,7 +29,7 @@ export const PAYMENT_STATUS = {
 
 export const PRODUCT_STATUS = {
   ON_SALE: { label: '판매중', color: 'primary' },
-  STOPPED: { label: '판매중지', color: 'default' },
+  SUSPENDED: { label: '판매중지', color: 'default' },
 }
 
 export function statusMeta(map, status) {

@@ -4,6 +4,7 @@ import com.gachisa.global.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -37,6 +38,17 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/v3/api-docs/**",
                     "/images/**"
+                ).permitAll()
+                // 비로그인 사용자도 상품/카테고리/공동구매를 둘러볼 수 있어야 한다.
+                // 참여·결제·등록 등 쓰기 작업은 각 컨트롤러의 인증/권한 체크로 계속 보호된다.
+                .requestMatchers(HttpMethod.GET,
+                    "/api/products",
+                    "/api/products/*",
+                    "/api/products/search",
+                    "/api/categories",
+                    "/api/categories/*",
+                    "/api/group-buys",
+                    "/api/group-buys/*"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

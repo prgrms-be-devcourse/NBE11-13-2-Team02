@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -16,6 +16,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { getGroupBuyDetail, cancelGroupBuy } from '../api/groupBuyApi'
 import { getProduct } from '../api/productApi'
+import { getMyParticipations } from '../api/participationApi'
 import { getErrorMessage } from '../api/errorMessage'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCountdown } from '../hooks/useCountdown'
@@ -33,7 +34,8 @@ const formatClock = (totalSeconds) => {
 export default function GroupBuyDetailPage() {
   const { groupBuyId } = useParams()
   const navigate = useNavigate()
-  const { isBuyer, isSeller, user } = useAuth()
+  const location = useLocation()
+  const { isBuyer, isSeller, isAuthenticated, user } = useAuth()
 
   const [groupBuy, setGroupBuy] = useState(null)
   const [product, setProduct] = useState(null)
@@ -41,6 +43,7 @@ export default function GroupBuyDetailPage() {
   const [error, setError] = useState('')
   const [quantity, setQuantity] = useState(1)
   const [cancelSubmitting, setCancelSubmitting] = useState(false)
+  const [myParticipation, setMyParticipation] = useState(null)
 
   const { seconds } = useCountdown(groupBuy?.remainingSeconds)
 
@@ -66,6 +69,23 @@ export default function GroupBuyDetailPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!isBuyer || !groupBuy) return undefined
+    let cancelled = false
+    getMyParticipations({ page: 0, size: 100 })
+      .then(({ data }) => {
+        if (cancelled) return
+        const existing = (data.content ?? []).find(
+          (p) => p.groupBuyId === groupBuy.groupBuyId && (p.status === '참여중' || p.status === '확정'),
+        )
+        setMyParticipation(existing ?? null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isBuyer, groupBuy])
 
   const handleCancelGroupBuy = async () => {
     if (!window.confirm('이 공동구매를 취소하시겠습니까?')) return
@@ -99,7 +119,11 @@ export default function GroupBuyDetailPage() {
       ? Math.round(product.basePrice * (1 - groupBuy.discountRate))
       : null
   const isRecruiting = groupBuy.status === '모집중'
+  const isFull = target > 0 && current >= target
+  const displayLabel = isRecruiting && isFull ? '모집완료' : meta.label
+  const displayColor = isRecruiting && isFull ? 'success' : meta.color
   const canParticipate = isBuyer && isRecruiting
+  const needsLoginToParticipate = !isAuthenticated && isRecruiting
   const canCancel = isSeller && isRecruiting && (!product?.sellerId || product.sellerId === user?.id)
 
   const bullets = [
@@ -151,17 +175,12 @@ export default function GroupBuyDetailPage() {
                   sx={{ bgcolor: 'primary.light', color: 'primary.main', fontWeight: 700 }}
                 />
               )}
-              <Chip size="small" label={meta.label} color={meta.color} />
+              <Chip size="small" label={displayLabel} color={displayColor} />
             </Stack>
 
             <Typography variant="h5" fontWeight={800} gutterBottom>
               {groupBuy.productName}
             </Typography>
-            {groupBuy.optionName && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                옵션: {groupBuy.optionName} / {groupBuy.optionValue}
-              </Typography>
-            )}
 
             <Stack direction="row" spacing={1.5} alignItems="baseline" sx={{ mt: 1 }}>
               <Typography variant="h4" fontWeight={800}>
@@ -215,26 +234,43 @@ export default function GroupBuyDetailPage() {
 
             {canParticipate && (
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 3 }}>
-                <Stack direction="row" alignItems="center" sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-                  <IconButton size="small" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
-                    <RemoveIcon fontSize="small" />
-                  </IconButton>
-                  <Typography sx={{ px: 1.5, minWidth: 24, textAlign: 'center' }}>{quantity}</Typography>
-                  <IconButton size="small" onClick={() => setQuantity((q) => q + 1)}>
-                    <AddIcon fontSize="small" />
-                  </IconButton>
-                </Stack>
+                {!myParticipation && !isFull && (
+                  <Stack direction="row" alignItems="center" sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
+                    <IconButton size="small" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
+                      <RemoveIcon fontSize="small" />
+                    </IconButton>
+                    <Typography sx={{ px: 1.5, minWidth: 24, textAlign: 'center' }}>{quantity}</Typography>
+                    <IconButton size="small" onClick={() => setQuantity((q) => q + 1)}>
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                )}
                 <Button
                   variant="contained"
-                  color="secondary"
+                  color={myParticipation || isFull ? 'inherit' : 'secondary'}
                   size="large"
                   fullWidth
+                  disabled={!!myParticipation || isFull}
                   onClick={handleParticipateClick}
                   sx={{ py: 1.4 }}
                 >
-                  참여 신청하기
+                  {myParticipation ? '참여완료' : isFull ? '모집 완료' : '참여 신청하기'}
                 </Button>
               </Stack>
+            )}
+
+            {needsLoginToParticipate && (
+              <Button
+                variant="contained"
+                color={isFull ? 'inherit' : 'secondary'}
+                size="large"
+                fullWidth
+                disabled={isFull}
+                sx={{ mt: 3, py: 1.4 }}
+                onClick={() => navigate('/login', { state: { from: location } })}
+              >
+                {isFull ? '모집 완료' : '로그인하고 참여하기'}
+              </Button>
             )}
 
             {canCancel && (

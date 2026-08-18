@@ -39,16 +39,19 @@ export default function Router() {
       <Route path="/payments/success" element={<PaymentSuccessPage />} />
       <Route path="/payments/fail" element={<PaymentFailPage />} />
 
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<GroupBuyListPage />} />
-          <Route path="/group-buys/:groupBuyId" element={<GroupBuyDetailPage />} />
+      {/* AppLayout(네비바)은 로그인 여부와 무관하게 공통으로 쓴다. 상품/공동구매 둘러보기는
+          비로그인 사용자도 가능해야 하므로 이 레벨에서는 ProtectedRoute를 두지 않는다. */}
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<GroupBuyListPage />} />
+        <Route path="/group-buys/:groupBuyId" element={<GroupBuyDetailPage />} />
+        <Route path="/products" element={<ProductListPage />} />
+        <Route path="/products/:productId" element={<ProductDetailPage />} />
+
+        {/* 여기서부터는 실제 행동(참여, 주문, 등록 등)이라 로그인이 필요하다 */}
+        <Route element={<ProtectedRoute />}>
           <Route path="/group-buys/:groupBuyId/checkout" element={<GroupBuyCheckoutPage />} />
           <Route path="/my/participations" element={<MyParticipationsPage />} />
           <Route path="/my/participations/:participationId" element={<ParticipationDetailPage />} />
-
-          <Route path="/products" element={<ProductListPage />} />
-          <Route path="/products/:productId" element={<ProductDetailPage />} />
 
           <Route path="/my/orders" element={<MyOrdersPage />} />
           <Route path="/my/orders/:orderId" element={<OrderDetailPage />} />
@@ -66,10 +69,10 @@ export default function Router() {
             <Route path="/admin/categories" element={<CategoryManagePage />} />
             <Route path="/admin/deliveries" element={<AdminDeliveryPage />} />
           </Route>
-
-          <Route path="/403" element={<ForbiddenPage />} />
-          <Route path="*" element={<NotFoundPage />} />
         </Route>
+
+        <Route path="/403" element={<ForbiddenPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   )
