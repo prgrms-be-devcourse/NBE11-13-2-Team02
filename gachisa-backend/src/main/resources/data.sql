@@ -23,9 +23,9 @@ INSERT INTO product_option (product_id, option_name, option_value, stock) VALUES
                                                                               (1, '기타', '기본', 100),
                                                                               (2, '기타', '기본', 100);
 
-INSERT INTO group_buy (product_id, product_option_id, target_count, current_count, discount_rate, open_at, deadline, status) VALUES
-                                                                                                                                  (1, 1, 10, 8, 0.30, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 'RECRUITING'),
-                                                                                                                                  (2, 2, 8,  2, 0.20, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 'RECRUITING');
+INSERT INTO group_buy (product_id, product_option_id, target_count, current_count, discount_rate, open_at, deadline, status, seller_id) VALUES
+                                                                                                                                  (1, 1, 10, 8, 0.30, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 'RECRUITING', 3),
+                                                                                                                                  (2, 2, 8,  2, 0.20, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 'RECRUITING', 3);
 
 INSERT INTO participation (group_buy_id, user_id, quantity, status, participated_at) VALUES
                                                                                          (1, 1, 1, 'PARTICIPATING', NOW()),

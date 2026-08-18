@@ -1,40 +1,82 @@
-import { createContext, useContext, useState, useCallback } from 'react'
-import { login as loginApi } from '../api/authApi'
-import { parseJwt } from '../utils/jwt'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import * as authApi from '../api/authApi'
+import * as userApi from '../api/userApi'
+import { reissueAccessToken } from '../api/axiosInstance'
+import { setAccessToken, clearAccessToken } from '../api/tokenStore'
 
 const AuthContext = createContext(null)
 
-function buildUserFromToken(token) {
-  if (!token) return null
-  const payload = parseJwt(token)
-  if (!payload) return null
-  // 백엔드 JwtTokenProvider가 토큰 발급 시 sub(userId), role 클레임을 넣는다고 가정
-  return { userId: payload.sub, role: payload.role }
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() =>
-    buildUserFromToken(localStorage.getItem('accessToken'))
-  )
+  const [user, setUser] = useState(null)
+  const [initializing, setInitializing] = useState(true)
 
-  const login = useCallback(async (email, password) => {
-    const data = await loginApi(email, password) // 인터셉터가 이미 result만 반환
-    localStorage.setItem('accessToken', data.accessToken)
-    localStorage.setItem('refreshToken', data.refreshToken)
-    setUser(buildUserFromToken(data.accessToken))
+  const fetchAndSetUser = useCallback(async () => {
+    const { data } = await userApi.getMe()
+    setUser(data)
+    return data
   }, [])
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    setUser(null)
+  useEffect(() => {
+    // 앱 진입 시 httpOnly 리프레시 쿠키(sid)로 세션 복원 시도
+    let cancelled = false
+    ;(async () => {
+      try {
+        await reissueAccessToken()
+        if (!cancelled) await fetchAndSetUser()
+      } catch {
+        if (!cancelled) setUser(null)
+      } finally {
+        if (!cancelled) setInitializing(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [fetchAndSetUser])
+
+  useEffect(() => {
+    const handleExpired = () => setUser(null)
+    window.addEventListener('auth:sessionExpired', handleExpired)
+    return () => window.removeEventListener('auth:sessionExpired', handleExpired)
   }, [])
 
-  return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const login = useCallback(
+    async (email, password) => {
+      const { data } = await authApi.login(email, password)
+      setAccessToken(data.accessToken)
+      await fetchAndSetUser()
+    },
+    [fetchAndSetUser],
   )
+
+  const signUp = useCallback((payload) => authApi.signUp(payload), [])
+
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout()
+    } finally {
+      clearAccessToken()
+      setUser(null)
+    }
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      user,
+      initializing,
+      isAuthenticated: !!user,
+      isBuyer: user?.role === 'ROLE_BUYER',
+      isSeller: user?.role === 'ROLE_SELLER',
+      isAdmin: user?.role === 'ROLE_ADMIN',
+      login,
+      signUp,
+      logout,
+      refreshUser: fetchAndSetUser,
+    }),
+    [user, initializing, login, signUp, logout, fetchAndSetUser],
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => useContext(AuthContext)

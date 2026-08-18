@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Paper from '@mui/material/Paper'
+import Typography from '@mui/material/Typography'
+import Stack from '@mui/material/Stack'
+import CircularProgress from '@mui/material/CircularProgress'
 import { confirmPayment, getPayment } from '../api/paymentApi.js'
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
@@ -65,9 +70,16 @@ export default function PaymentSuccessPage() {
   }, [navigate, searchParams])
 
   return (
-    <main style={{ maxWidth: 640, margin: '60px auto', textAlign: 'center' }}>
-      <h1>결제 확인</h1>
-      <p>{message}</p>
-    </main>
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', px: 2 }}>
+      <Paper sx={{ p: 5, width: 420, textAlign: 'center' }} variant="outlined">
+        <Stack spacing={2.5} alignItems="center">
+          <CircularProgress color="primary" />
+          <Typography variant="h6" fontWeight={800}>
+            결제 확인 중
+          </Typography>
+          <Typography color="text.secondary">{message}</Typography>
+        </Stack>
+      </Paper>
+    </Box>
   )
 }

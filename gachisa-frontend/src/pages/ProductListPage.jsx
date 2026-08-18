@@ -1,0 +1,233 @@
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Paper from '@mui/material/Paper'
+import Typography from '@mui/material/Typography'
+import TextField from '@mui/material/TextField'
+import Button from '@mui/material/Button'
+import Alert from '@mui/material/Alert'
+import Stack from '@mui/material/Stack'
+import Grid from '@mui/material/Grid'
+import Card from '@mui/material/Card'
+import CardActionArea from '@mui/material/CardActionArea'
+import CardContent from '@mui/material/CardContent'
+import CardMedia from '@mui/material/CardMedia'
+import Chip from '@mui/material/Chip'
+import MenuItem from '@mui/material/MenuItem'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import { useAuth } from '../context/AuthContext.jsx'
+import { getErrorMessage } from '../api/errorMessage'
+import { getProducts, searchProducts } from '../api/productApi'
+import { getCategories } from '../api/categoryApi'
+import { fetchActiveGroupBuyIdsByProductName } from '../utils/groupBuyLookup'
+import { PRODUCT_STATUS, statusMeta, formatPrice } from '../utils/statusMeta'
+import LoadingScreen from '../components/LoadingScreen.jsx'
+
+const emptyFilters = { keyword: '', categoryId: '', minPrice: '', maxPrice: '' }
+
+function flattenCategories(nodes, depth = 0) {
+  return (nodes ?? []).flatMap((node) => [
+    { id: node.id, label: `${'— '.repeat(depth)}${node.name}` },
+    ...flattenCategories(node.children, depth + 1),
+  ])
+}
+
+export default function ProductListPage() {
+  const { isSeller } = useAuth()
+  const [searchParams] = useSearchParams()
+  const initialFilters = {
+    ...emptyFilters,
+    keyword: searchParams.get('keyword') ?? '',
+    categoryId: searchParams.get('categoryId') ?? '',
+  }
+  const [products, setProducts] = useState([])
+  const [categories, setCategories] = useState([])
+  const [groupBuyIdsByProductName, setGroupBuyIdsByProductName] = useState({})
+  const [filters, setFilters] = useState(initialFilters)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    getCategories()
+      .then(({ data }) => setCategories(flattenCategories(data)))
+      .catch(() => setCategories([]))
+    fetchActiveGroupBuyIdsByProductName()
+      .then(setGroupBuyIdsByProductName)
+      .catch(() => setGroupBuyIdsByProductName({}))
+  }, [])
+
+  const fetchProducts = useCallback(async (currentFilters) => {
+    setLoading(true)
+    setError('')
+    try {
+      const hasFilter = Object.values(currentFilters).some((value) => value !== '' && value !== undefined)
+      const { data } = hasFilter
+        ? await searchProducts({
+            keyword: currentFilters.keyword || undefined,
+            categoryId: currentFilters.categoryId || undefined,
+            minPrice: currentFilters.minPrice === '' ? undefined : Number(currentFilters.minPrice),
+            maxPrice: currentFilters.maxPrice === '' ? undefined : Number(currentFilters.maxPrice),
+          })
+        : await getProducts()
+      setProducts(data)
+    } catch (err) {
+      setError(getErrorMessage(err, '상품 목록을 불러오지 못했습니다.'))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchProducts(initialFilters)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchProducts])
+
+  const handleChange = (field) => (e) => setFilters((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    fetchProducts(filters)
+  }
+
+  return (
+    <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Typography variant="h5" fontWeight={700}>
+          상품 목록
+        </Typography>
+        {isSeller && (
+          <Button component={Link} to="/products/new" variant="contained">
+            상품 등록
+          </Button>
+        )}
+      </Stack>
+
+      <Paper component="form" onSubmit={handleSearch} sx={{ p: 2, mb: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+          <TextField
+            label="키워드"
+            value={filters.keyword}
+            onChange={handleChange('keyword')}
+            size="small"
+            fullWidth
+          />
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel id="category-filter-label">카테고리</InputLabel>
+            <Select
+              labelId="category-filter-label"
+              label="카테고리"
+              value={filters.categoryId}
+              onChange={handleChange('categoryId')}
+            >
+              <MenuItem value="">전체</MenuItem>
+              {categories.map((cat) => (
+                <MenuItem key={cat.id} value={cat.id}>
+                  {cat.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="최소 가격"
+            type="number"
+            value={filters.minPrice}
+            onChange={handleChange('minPrice')}
+            size="small"
+          />
+          <TextField
+            label="최대 가격"
+            type="number"
+            value={filters.maxPrice}
+            onChange={handleChange('maxPrice')}
+            size="small"
+          />
+          <Button type="submit" variant="contained" sx={{ whiteSpace: 'nowrap' }}>
+            검색
+          </Button>
+        </Stack>
+      </Paper>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {loading ? (
+        <LoadingScreen />
+      ) : products.length === 0 ? (
+        <Typography color="text.secondary" textAlign="center" sx={{ py: 6 }}>
+          조건에 맞는 상품이 없습니다.
+        </Typography>
+      ) : (
+        <Grid container spacing={2}>
+          {products.map((product) => {
+            const status = statusMeta(PRODUCT_STATUS, product.status)
+            const groupBuyId = groupBuyIdsByProductName[product.name]
+            const linkTo = groupBuyId ? `/group-buys/${groupBuyId}` : `/products/${product.id}`
+            return (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
+                <Card variant="outlined">
+                  <CardActionArea component={Link} to={linkTo}>
+                    <Box sx={{ position: 'relative' }}>
+                      {product.imageUrl ? (
+                        <CardMedia component="img" height={160} image={product.imageUrl} alt={product.name} />
+                      ) : (
+                        <Box
+                          sx={{
+                            height: 160,
+                            bgcolor: 'grey.200',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Typography variant="body2" color="text.secondary">
+                            이미지 없음
+                          </Typography>
+                        </Box>
+                      )}
+                      {groupBuyId && (
+                        <Chip
+                          size="small"
+                          label="공동구매 진행중"
+                          sx={{
+                            position: 'absolute',
+                            top: 8,
+                            left: 8,
+                            bgcolor: 'secondary.main',
+                            color: '#fff',
+                            fontWeight: 700,
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <CardContent>
+                      <Typography variant="subtitle1" fontWeight={600} noWrap>
+                        {product.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {product.categoryName ?? '-'}
+                      </Typography>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          {formatPrice(product.basePrice)}
+                        </Typography>
+                        <Chip label={status.label} color={status.color} size="small" />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        판매자: {product.sellerName ?? '-'}
+                      </Typography>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+            )
+          })}
+        </Grid>
+      )}
+    </Box>
+  )
+}

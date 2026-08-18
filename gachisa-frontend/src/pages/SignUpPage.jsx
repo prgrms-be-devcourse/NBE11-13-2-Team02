@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -7,20 +7,18 @@ import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
-import Divider from '@mui/material/Divider'
-import Snackbar from '@mui/material/Snackbar'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getErrorMessage } from '../api/errorMessage'
 import Logo from '../components/Logo.jsx'
 
-export default function LoginPage() {
-  const { login } = useAuth()
+export default function SignUpPage() {
+  const { signUp } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({ email: '', password: '', name: '', role: 'ROLE_BUYER' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [soonOpen, setSoonOpen] = useState(false)
 
   const handleChange = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
 
@@ -29,10 +27,10 @@ export default function LoginPage() {
     setError('')
     setSubmitting(true)
     try {
-      await login(form.email, form.password)
-      navigate(location.state?.from?.pathname ?? '/', { replace: true })
+      await signUp(form)
+      navigate('/login', { replace: true, state: { signedUp: true } })
     } catch (err) {
-      setError(getErrorMessage(err, '로그인에 실패했습니다. 이메일/비밀번호를 확인해주세요.'))
+      setError(getErrorMessage(err, '회원가입에 실패했습니다.'))
     } finally {
       setSubmitting(false)
     }
@@ -49,15 +47,22 @@ export default function LoginPage() {
         px: 2,
       }}
     >
-      <Paper sx={{ p: 5, width: 420, borderRadius: 4 }} elevation={0} variant="outlined">
+      <Paper sx={{ p: 5, width: 440, borderRadius: 4 }} elevation={0} variant="outlined">
         <Logo size={36} textVariant="h5" />
         <Typography color="text.secondary" sx={{ mt: 1.5, mb: 3 }}>
-          로그인하고 공동구매에 참여해보세요
+          같이사에서 함께 구매하고 더 저렴하게 만나보세요
         </Typography>
 
         <Box component="form" onSubmit={handleSubmit}>
           <Stack spacing={2.5}>
             {error && <Alert severity="error">{error}</Alert>}
+
+            <Box>
+              <Typography variant="body2" fontWeight={700} sx={{ mb: 0.8 }}>
+                이름
+              </Typography>
+              <TextField value={form.name} onChange={handleChange('name')} required fullWidth size="small" />
+            </Box>
 
             <Box>
               <Typography variant="body2" fontWeight={700} sx={{ mb: 0.8 }}>
@@ -89,44 +94,34 @@ export default function LoginPage() {
               />
             </Box>
 
+            <Box>
+              <Typography variant="body2" fontWeight={700} sx={{ mb: 0.8 }}>
+                가입 유형
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                fullWidth
+                value={form.role}
+                onChange={(_, value) => value && setForm((prev) => ({ ...prev, role: value }))}
+              >
+                <ToggleButton value="ROLE_BUYER">구매자</ToggleButton>
+                <ToggleButton value="ROLE_SELLER">판매자</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
             <Button type="submit" variant="contained" size="large" disabled={submitting} sx={{ py: 1.4 }}>
-              {submitting ? '로그인 중...' : '로그인'}
-            </Button>
-
-            <Divider sx={{ color: 'text.secondary', fontSize: 13 }}>또는</Divider>
-
-            <Button
-              size="large"
-              onClick={() => setSoonOpen(true)}
-              sx={{ bgcolor: '#FEE500', color: '#3C1E1E', py: 1.2, '&:hover': { bgcolor: '#FADA00' } }}
-            >
-              카카오로 시작하기
-            </Button>
-            <Button
-              size="large"
-              onClick={() => setSoonOpen(true)}
-              sx={{ bgcolor: '#03C75A', color: '#fff', py: 1.2, '&:hover': { bgcolor: '#02B350' } }}
-            >
-              네이버로 시작하기
+              {submitting ? '가입 중...' : '회원가입'}
             </Button>
           </Stack>
         </Box>
 
         <Typography variant="body2" textAlign="center" sx={{ mt: 3.5 }}>
-          계정이 없으신가요?{' '}
-          <Typography component={Link} to="/signup" variant="body2" fontWeight={700} color="primary.main" sx={{ textDecoration: 'none' }}>
-            회원가입
+          이미 계정이 있으신가요?{' '}
+          <Typography component={Link} to="/login" variant="body2" fontWeight={700} color="primary.main" sx={{ textDecoration: 'none' }}>
+            로그인
           </Typography>
         </Typography>
       </Paper>
-
-      <Snackbar
-        open={soonOpen}
-        autoHideDuration={2500}
-        onClose={() => setSoonOpen(false)}
-        message="소셜 로그인은 준비 중이에요."
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      />
     </Box>
   )
 }
