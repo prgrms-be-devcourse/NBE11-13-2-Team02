@@ -1,36 +1,67 @@
 import { useState } from 'react'
+import Box from '@mui/material/Box'
+import Paper from '@mui/material/Paper'
+import Typography from '@mui/material/Typography'
+import TextField from '@mui/material/TextField'
+import MenuItem from '@mui/material/MenuItem'
+import Button from '@mui/material/Button'
+import Alert from '@mui/material/Alert'
+import Stack from '@mui/material/Stack'
 import { updateDeliveryStatusByAdmin } from '../api/orderApi.js'
 
 export default function AdminDeliveryPage() {
   const [orderId, setOrderId] = useState('')
   const [deliveryStatus, setDeliveryStatus] = useState('SHIPPING')
   const [message, setMessage] = useState('')
+  const [isError, setIsError] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const submit = async (event) => {
     event.preventDefault()
+    setSubmitting(true)
     try {
       await updateDeliveryStatusByAdmin(orderId, deliveryStatus)
+      setIsError(false)
       setMessage('배송 상태를 변경했습니다.')
     } catch (requestError) {
+      setIsError(true)
       setMessage(requestError.response?.data?.message ?? '배송 상태를 변경하지 못했습니다.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   return (
-    <main style={{ maxWidth: 520, margin: '40px auto' }}>
-      <h1>관리자 배송 상태 관리</h1>
-      <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
-        <label>주문 ID<input required value={orderId} onChange={(event) => setOrderId(event.target.value)} /></label>
-        <label>배송 상태
-          <select value={deliveryStatus} onChange={(event) => setDeliveryStatus(event.target.value)}>
-            <option value="PREPARING">배송 준비</option>
-            <option value="SHIPPING">배송 중</option>
-            <option value="DELIVERED">배송 완료</option>
-          </select>
-        </label>
-        <button>상태 변경</button>
-      </form>
-      {message && <p>{message}</p>}
-    </main>
+    <Box sx={{ maxWidth: 480, mx: 'auto' }}>
+      <Typography variant="h5" fontWeight={800} gutterBottom>
+        관리자 배송 상태 관리
+      </Typography>
+      <Paper component="form" onSubmit={submit} sx={{ p: 4, mt: 2 }}>
+        <Stack spacing={2}>
+          {message && <Alert severity={isError ? 'error' : 'success'}>{message}</Alert>}
+          <TextField
+            label="주문 ID"
+            required
+            value={orderId}
+            onChange={(event) => setOrderId(event.target.value)}
+            fullWidth
+          />
+          <TextField
+            select
+            label="배송 상태"
+            value={deliveryStatus}
+            onChange={(event) => setDeliveryStatus(event.target.value)}
+            fullWidth
+          >
+            <MenuItem value="PREPARING">배송 준비</MenuItem>
+            <MenuItem value="SHIPPING">배송 중</MenuItem>
+            <MenuItem value="DELIVERED">배송 완료</MenuItem>
+          </TextField>
+          <Button type="submit" variant="contained" size="large" disabled={submitting}>
+            상태 변경
+          </Button>
+        </Stack>
+      </Paper>
+    </Box>
   )
 }

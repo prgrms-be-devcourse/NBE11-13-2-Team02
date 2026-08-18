@@ -1,113 +1,154 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { getMyParticipations, cancelParticipation } from '../api/participationApi'
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
+import Stack from '@mui/material/Stack'
+import Paper from '@mui/material/Paper'
+import Avatar from '@mui/material/Avatar'
+import Chip from '@mui/material/Chip'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import StorefrontIcon from '@mui/icons-material/Storefront'
+import PersonIcon from '@mui/icons-material/Person'
+import { getMyParticipations } from '../api/participationApi'
+import { getErrorMessage } from '../api/errorMessage'
+import { useAuth } from '../context/AuthContext.jsx'
+import LoadingScreen from '../components/LoadingScreen.jsx'
+import { PARTICIPATION_STATUS, formatDateTime, statusMeta } from '../utils/statusMeta'
 
-const STATUS_FILTERS = ['전체', '참여중', '확정', '환불됨', '취소됨']
+const TABS = [
+  { value: 'PARTICIPATING', label: '참여중' },
+  { value: 'CONFIRMED', label: '확정' },
+  { value: 'REFUNDED', label: '환불됨' },
+  { value: 'CANCELLED', label: '취소됨' },
+]
 
-/** PT-04 (참여 이력 조회) + PT-02 (참여 취소) */
 export default function MyParticipationsPage() {
-  const [statusFilter, setStatusFilter] = useState('전체')
-  const [data, setData] = useState({ content: [], totalPages: 0 })
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [tab, setTab] = useState('PARTICIPATING')
+  const [participations, setParticipations] = useState([])
+  const [stats, setStats] = useState({ total: null, confirmed: null })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [cancelingId, setCancelingId] = useState(null)
+  const [error, setError] = useState('')
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true)
-    setError(null)
-    getMyParticipations({ status: statusFilter === '전체' ? undefined : statusFilter })
-      .then(({ data }) => setData(data))
-      .catch(() => setError('참여 이력을 불러오지 못했어요.'))
+    setError('')
+    return getMyParticipations({ status: tab, page: 0, size: 50 })
+      .then(({ data }) => setParticipations(data.content ?? []))
+      .catch((err) => setError(getErrorMessage(err, '참여 이력을 불러오지 못했습니다.')))
       .finally(() => setLoading(false))
-  }
+  }, [tab])
 
   useEffect(() => {
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter])
+  }, [load])
 
-  const handleCancel = async (participationId) => {
-    if (!window.confirm('참여를 취소하시겠어요?')) return
-    setCancelingId(participationId)
-    try {
-      await cancelParticipation(participationId)
-      load() // 목록 갱신
-    } catch (err) {
-      const message = err?.response?.data?.message
-      alert(message || '취소에 실패했어요. 이미 확정된 참여는 환불로만 처리돼요.')
-    } finally {
-      setCancelingId(null)
-    }
+  useEffect(() => {
+    Promise.all([
+      getMyParticipations({ page: 0, size: 1 }),
+      getMyParticipations({ status: 'CONFIRMED', page: 0, size: 1 }),
+    ])
+      .then(([totalRes, confirmedRes]) => {
+        setStats({ total: totalRes.data.totalElements, confirmed: confirmedRes.data.totalElements })
+      })
+      .catch(() => {})
+  }, [])
+
+  const goToDetail = (participation) => {
+    navigate(`/my/participations/${participation.participationId}`, { state: { participation } })
   }
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: 24 }}>
-      <h1 style={{ marginBottom: 16 }}>내 참여 내역</h1>
+    <Box sx={{ maxWidth: 640, mx: 'auto' }}>
+      <Paper sx={{ p: 3 }} variant="outlined">
+        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+          <Avatar sx={{ width: 48, height: 48, bgcolor: 'primary.light', color: 'primary.main' }}>
+            <PersonIcon />
+          </Avatar>
+          <Box>
+            <Typography fontWeight={800}>{user?.name} 님</Typography>
+            <Typography variant="body2" color="text.secondary">
+              참여 {stats.total ?? '-'}회 · 성사 {stats.confirmed ?? '-'}회
+            </Typography>
+          </Box>
+        </Stack>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {STATUS_FILTERS.map((s) => (
-          <button
-            key={s}
-            onClick={() => setStatusFilter(s)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 20,
-              border: '1px solid #ddd',
-              background: statusFilter === s ? '#e0522f' : '#fff',
-              color: statusFilter === s ? '#fff' : '#333',
-              cursor: 'pointer',
-            }}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          sx={{ minHeight: 36, mb: 1, borderBottom: '1px solid #ECEEF5' }}
+        >
+          {TABS.map((t) => (
+            <Tab key={t.value} value={t.value} label={t.label} sx={{ minHeight: 36, fontWeight: 700 }} />
+          ))}
+        </Tabs>
 
-      {loading && <p>불러오는 중...</p>}
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {!loading && !error && data.content.length === 0 && (
-        <p style={{ color: '#888' }}>참여 내역이 없어요.</p>
-      )}
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-      <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {data.content.map((p) => (
-          <li
-            key={p.participationId}
-            style={{
-              border: '1px solid #eee',
-              borderRadius: 10,
-              padding: 14,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <div>
-              <Link to={`/group-buys/${p.groupBuyId}`} style={{ fontWeight: 600, color: '#222' }}>
-                {p.productName}
-              </Link>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#888' }}>
-                {p.status} · {p.quantity}개 · {new Date(p.participatedAt).toLocaleDateString('ko-KR')}
-              </p>
-            </div>
-            {p.status === '참여중' && (
-              <button
-                onClick={() => handleCancel(p.participationId)}
-                disabled={cancelingId === p.participationId}
-                style={{
-                  padding: '6px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: 6,
-                  background: '#fff',
-                  cursor: 'pointer',
-                }}
-              >
-                {cancelingId === p.participationId ? '취소중...' : '취소'}
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
+        {loading ? (
+          <LoadingScreen />
+        ) : participations.length === 0 ? (
+          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+            해당 상태의 참여 내역이 없습니다.
+          </Typography>
+        ) : (
+          <Stack spacing={1.5} sx={{ mt: 2 }}>
+            {participations.map((p) => {
+              const meta = statusMeta(PARTICIPATION_STATUS, p.status)
+              return (
+                <Stack
+                  key={p.participationId}
+                  direction="row"
+                  alignItems="center"
+                  onClick={() => goToDetail(p)}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: tab === 'PARTICIPATING' ? 'primary.main' : '#ECEEF5',
+                    bgcolor: tab === 'PARTICIPATING' ? 'primary.light' : 'transparent',
+                    cursor: 'pointer',
+                    gap: 2,
+                    '&:hover': { borderColor: 'primary.main' },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 2,
+                      bgcolor: 'background.paper',
+                      border: '1px solid #ECEEF5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <StorefrontIcon sx={{ color: 'primary.main', fontSize: 22 }} />
+                  </Box>
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Typography fontWeight={700} noWrap>
+                      {p.productName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {p.quantity}개 · {formatDateTime(p.participatedAt)}
+                    </Typography>
+                  </Box>
+                  <Chip size="small" label={meta.label} color={meta.color} />
+                </Stack>
+              )
+            })}
+          </Stack>
+        )}
+      </Paper>
+    </Box>
   )
 }

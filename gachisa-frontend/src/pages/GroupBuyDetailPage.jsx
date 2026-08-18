@@ -1,150 +1,256 @@
-import { useEffect, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
-import { getGroupBuyDetail } from '../api/groupBuyApi'
-import { participate } from '../api/participationApi'
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import Box from '@mui/material/Box'
+import Paper from '@mui/material/Paper'
+import Typography from '@mui/material/Typography'
+import Chip from '@mui/material/Chip'
+import Stack from '@mui/material/Stack'
+import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
+import LinearProgress from '@mui/material/LinearProgress'
+import Alert from '@mui/material/Alert'
+import Divider from '@mui/material/Divider'
+import RemoveIcon from '@mui/icons-material/Remove'
+import AddIcon from '@mui/icons-material/Add'
+import StorefrontIcon from '@mui/icons-material/Storefront'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import { getGroupBuyDetail, cancelGroupBuy } from '../api/groupBuyApi'
+import { getProduct } from '../api/productApi'
+import { getErrorMessage } from '../api/errorMessage'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useCountdown } from '../hooks/useCountdown'
-import { useParticipationCount } from '../hooks/useParticipationCount'
-import PaymentButton from '../components/PaymentButton.jsx'
+import LoadingScreen from '../components/LoadingScreen.jsx'
+import { GROUP_BUY_STATUS, formatPrice, statusMeta } from '../utils/statusMeta'
 
-/**
- * GB-03 (상세 조회) + PT-01 (참여) 화면.
- * 실시간 참여 인원은 useParticipationCount 훅으로 5초마다 폴링해서 갱신한다.
- */
+const formatClock = (totalSeconds) => {
+  if (totalSeconds <= 0) return '00:00:00'
+  const h = Math.floor(totalSeconds / 3600)
+  const m = Math.floor((totalSeconds % 3600) / 60)
+  const s = totalSeconds % 60
+  return [h, m, s].map((v) => String(v).padStart(2, '0')).join(':')
+}
+
 export default function GroupBuyDetailPage() {
   const { groupBuyId } = useParams()
-  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const { isBuyer, isSeller, user } = useAuth()
 
-  const [detail, setDetail] = useState(null)
+  const [groupBuy, setGroupBuy] = useState(null)
+  const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
+  const [error, setError] = useState('')
   const [quantity, setQuantity] = useState(1)
-  const [submitting, setSubmitting] = useState(false)
-  const [participateError, setParticipateError] = useState(null)
-  const [participationId, setParticipationId] = useState(
-    searchParams.get('participationId'),
-  )
-  const demoMode = searchParams.get('demo') === 'true'
+  const [cancelSubmitting, setCancelSubmitting] = useState(false)
 
-  // 폴링으로 최신 참여 인원을 계속 받아온다 (초기값은 상세 조회 결과로 세팅)
-  const liveCount = useParticipationCount(groupBuyId)
+  const { seconds } = useCountdown(groupBuy?.remainingSeconds)
 
-  useEffect(() => {
-    let cancelled = false
+  const load = useCallback(() => {
     setLoading(true)
-    setError(null)
-
-    getGroupBuyDetail(groupBuyId)
-      .then(({ data }) => {
-        if (!cancelled) setDetail(data)
+    setError('')
+    return getGroupBuyDetail(groupBuyId)
+      .then(async ({ data }) => {
+        setGroupBuy(data)
+        if (data.productId) {
+          try {
+            const { data: productData } = await getProduct(data.productId)
+            setProduct(productData)
+          } catch {
+            setProduct(null)
+          }
+        }
       })
-      .catch(() => {
-        if (!cancelled) setError('공동구매 정보를 불러오지 못했어요.')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => { cancelled = true }
+      .catch((err) => setError(getErrorMessage(err, '공동구매 정보를 불러오지 못했습니다.')))
+      .finally(() => setLoading(false))
   }, [groupBuyId])
 
-  const { label: remainingLabel } = useCountdown(detail?.remainingSeconds)
+  useEffect(() => {
+    load()
+  }, [load])
 
-  // 폴링 값이 오면 그걸 우선 쓰고, 아직 안 왔으면 상세 조회 결과를 보여준다
-  const currentCount = liveCount?.currentCount ?? detail?.currentCount ?? 0
-  const targetCount = liveCount?.targetCount ?? detail?.targetCount ?? 0
-  const isRecruiting = detail?.status === '모집중'
-  const isFull = targetCount > 0 && currentCount >= targetCount
-
-  const handleParticipate = async () => {
-    setSubmitting(true)
-    setParticipateError(null)
+  const handleCancelGroupBuy = async () => {
+    if (!window.confirm('이 공동구매를 취소하시겠습니까?')) return
+    setCancelSubmitting(true)
     try {
-      const response = await participate(groupBuyId, quantity)
-      setParticipationId(response.data.participationId)
+      await cancelGroupBuy(groupBuyId)
+      await load()
     } catch (err) {
-      const message = err?.response?.data?.message
-      if (err?.response?.status === 409) {
-        setParticipateError(message || '정원이 마감되었거나 이미 종료된 공동구매예요.')
-      } else if (err?.response?.status === 401) {
-        setParticipateError('로그인이 필요해요.')
-      } else {
-        setParticipateError('참여 신청 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.')
-      }
+      setError(getErrorMessage(err, '공동구매 취소에 실패했습니다.'))
     } finally {
-      setSubmitting(false)
+      setCancelSubmitting(false)
     }
   }
 
-  if (loading) return <p style={{ padding: 24 }}>불러오는 중...</p>
-  if (error) return <p style={{ padding: 24, color: 'crimson' }}>{error}</p>
-  if (!detail) return null
+  const handleParticipateClick = () => {
+    navigate(`/group-buys/${groupBuyId}/checkout`, {
+      state: { quantity, productName: groupBuy?.productName },
+    })
+  }
+
+  if (loading) return <LoadingScreen />
+  if (error && !groupBuy) return <Alert severity="error">{error}</Alert>
+  if (!groupBuy) return null
+
+  const meta = statusMeta(GROUP_BUY_STATUS, groupBuy.status)
+  const target = groupBuy.targetCount ?? 0
+  const current = groupBuy.currentCount ?? 0
+  const progress = groupBuy.progressRate ?? (target > 0 ? (current / target) * 100 : 0)
+  const discounted =
+    product && typeof groupBuy.discountRate === 'number'
+      ? Math.round(product.basePrice * (1 - groupBuy.discountRate))
+      : null
+  const isRecruiting = groupBuy.status === '모집중'
+  const canParticipate = isBuyer && isRecruiting
+  const canCancel = isSeller && isRecruiting && (!product?.sellerId || product.sellerId === user?.id)
+
+  const bullets = [
+    product?.description,
+    '목표 인원 도달 시 자동 주문 확정',
+    '미달 시 전원 자동 환불',
+  ].filter(Boolean)
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: 24 }}>
-      <span style={{ fontSize: 13, color: '#888' }}>{detail.status}</span>
-      <h1 style={{ margin: '4px 0 4px' }}>{detail.productName}</h1>
-      <p style={{ color: '#666' }}>{detail.optionName}: {detail.optionValue}</p>
+    <Box>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-      <div style={{ margin: '20px 0', padding: 16, background: '#faf7f5', borderRadius: 12 }}>
-        <p style={{ fontSize: 24, fontWeight: 700, color: '#e0522f', margin: 0 }}>
-          {Math.round(detail.discountRate * 100)}% 할인
-        </p>
-        <p style={{ margin: '8px 0 0' }}>
-          <strong>{currentCount}</strong> / {targetCount}명 참여 중 ({detail.progressRate ?? Math.round((currentCount / (targetCount || 1)) * 100)}%)
-        </p>
-        <p style={{ margin: '4px 0 0', color: '#888', fontSize: 13 }}>{remainingLabel}</p>
-      </div>
+      <Paper sx={{ overflow: 'hidden' }}>
+        <Stack direction={{ xs: 'column', md: 'row' }}>
+          <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
+            {product?.imageUrl ? (
+              <Box
+                component="img"
+                src={product.imageUrl}
+                alt={product.name}
+                sx={{ width: '100%', height: '100%', minHeight: 280, objectFit: 'cover' }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  height: '100%',
+                  minHeight: 280,
+                  bgcolor: 'primary.light',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <StorefrontIcon sx={{ fontSize: 64, color: 'primary.main' }} />
+              </Box>
+            )}
+          </Box>
 
-      {isRecruiting && !isFull && (
-        <div>
-          <label>
-            참여 수량:{' '}
-            <input
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-              style={{ width: 60 }}
+          <Box sx={{ p: 4, flexGrow: 1 }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+              {product?.categoryName && (
+                <Chip
+                  size="small"
+                  label={product.categoryName}
+                  sx={{ bgcolor: 'primary.light', color: 'primary.main', fontWeight: 700 }}
+                />
+              )}
+              <Chip size="small" label={meta.label} color={meta.color} />
+            </Stack>
+
+            <Typography variant="h5" fontWeight={800} gutterBottom>
+              {groupBuy.productName}
+            </Typography>
+            {groupBuy.optionName && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                옵션: {groupBuy.optionName} / {groupBuy.optionValue}
+              </Typography>
+            )}
+
+            <Stack direction="row" spacing={1.5} alignItems="baseline" sx={{ mt: 1 }}>
+              <Typography variant="h4" fontWeight={800}>
+                {formatPrice(discounted ?? product?.basePrice)}
+              </Typography>
+              {product && discounted != null && (
+                <Typography color="text.secondary" sx={{ textDecoration: 'line-through' }}>
+                  {formatPrice(product.basePrice)}
+                </Typography>
+              )}
+              {typeof groupBuy.discountRate === 'number' && (
+                <Chip
+                  size="small"
+                  label={`${Math.round(groupBuy.discountRate * 100)}% 할인`}
+                  sx={{ bgcolor: 'secondary.light', color: 'secondary.dark', fontWeight: 700 }}
+                />
+              )}
+            </Stack>
+
+            <Divider sx={{ my: 2.5 }} />
+
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(100, progress)}
+              color={progress >= 100 ? 'success' : 'primary'}
+              sx={{ height: 8, borderRadius: 4 }}
             />
-          </label>
-          <button
-            onClick={handleParticipate}
-            disabled={submitting || Boolean(participationId)}
-            style={{
-              display: 'block',
-              width: '100%',
-              marginTop: 12,
-              padding: 14,
-              background: '#e0522f',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer',
-              opacity: submitting || participationId ? 0.6 : 1,
-            }}
-          >
-            {participationId ? '참여 완료' : submitting ? '처리중...' : '참여하기'}
-          </button>
-          {participateError && <p style={{ color: 'crimson', marginTop: 8 }}>{participateError}</p>}
-          {participationId && <p style={{ color: '#2f9e44', marginTop: 8 }}>참여가 완료됐어요. 결제를 진행해주세요.</p>}
-        </div>
-      )}
+            <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
+              <Typography variant="body2" fontWeight={700}>
+                {current}/{target}명 참여
+              </Typography>
+              {isRecruiting && (
+                <Typography variant="body2" fontWeight={700} color="secondary.dark">
+                  남은시간 {formatClock(seconds ?? groupBuy.remainingSeconds ?? 0)}
+                </Typography>
+              )}
+            </Stack>
 
-      {(participationId || demoMode) && (
-        <PaymentButton
-          groupBuyId={groupBuyId}
-          participationId={participationId}
-          productName={detail.productName}
-          demoMode={demoMode}
-        />
-      )}
+            {bullets.length > 0 && (
+              <Stack spacing={0.6} sx={{ mt: 2.5 }}>
+                {bullets.map((text) => (
+                  <Stack key={text} direction="row" spacing={1} alignItems="flex-start">
+                    <CheckCircleIcon sx={{ fontSize: 16, color: 'primary.main', mt: 0.3 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {text}
+                    </Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
 
-      {(!isRecruiting || isFull) && (
-        <p style={{ color: '#888' }}>
-          {isFull ? '정원이 마감되었어요.' : `이 공동구매는 ${detail.status} 상태예요.`}
-        </p>
-      )}
-    </div>
+            {canParticipate && (
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 3 }}>
+                <Stack direction="row" alignItems="center" sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
+                  <IconButton size="small" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
+                    <RemoveIcon fontSize="small" />
+                  </IconButton>
+                  <Typography sx={{ px: 1.5, minWidth: 24, textAlign: 'center' }}>{quantity}</Typography>
+                  <IconButton size="small" onClick={() => setQuantity((q) => q + 1)}>
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  size="large"
+                  fullWidth
+                  onClick={handleParticipateClick}
+                  sx={{ py: 1.4 }}
+                >
+                  참여 신청하기
+                </Button>
+              </Stack>
+            )}
+
+            {canCancel && (
+              <Button
+                variant="outlined"
+                color="error"
+                sx={{ mt: 3 }}
+                disabled={cancelSubmitting}
+                onClick={handleCancelGroupBuy}
+              >
+                공동구매 취소
+              </Button>
+            )}
+          </Box>
+        </Stack>
+      </Paper>
+    </Box>
   )
 }
