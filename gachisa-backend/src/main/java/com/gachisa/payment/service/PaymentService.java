@@ -3,6 +3,7 @@ package com.gachisa.payment.service;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.util.TimeProvider;
+import com.gachisa.order.service.OrderService;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.payment.client.PgClient;
@@ -40,6 +41,7 @@ public class PaymentService {
     private final PaymentConfirmationStateService confirmationStateService;
     private final TimeProvider timeProvider;
     private final QueueService queueService;
+    private final OrderService orderService;
 
     @Transactional
     public PaymentResponse createPayment(Long participationId, Long userId, String clientRequestId,
@@ -151,7 +153,10 @@ public class PaymentService {
         validateOwner(participation, userId);
         PaymentAttempt attempt = paymentAttemptRepository.findFirstByPaymentIdOrderByCreatedAtDesc(paymentId)
                 .orElse(null);
-        return PaymentResponse.from(payment, attempt);
+        Long orderId = payment.getStatus() == PaymentStatus.PAID
+                ? orderService.getOrderIdByParticipationId(payment.getParticipationId())
+                : null;
+        return PaymentResponse.from(payment, attempt, orderId);
     }
 
     private Payment getPayment(Long paymentId) {

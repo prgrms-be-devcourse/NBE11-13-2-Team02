@@ -71,7 +71,7 @@ class PaymentRecoveryServiceTest {
 
     private PaymentResponse paymentResponse(PaymentStatus status) {
         return new PaymentResponse(
-                1L, 2L, 10L, "gachisa_order", "payment-key", 12_600, status,
+                1L, 2L, 10L, null, "gachisa_order", "payment-key", 12_600, status,
                 PaymentAttemptStatus.PAID, PaymentMethod.CARD, 1, null, null, null,
                 null, null, null, null);
     }

@@ -6,6 +6,7 @@ import com.gachisa.global.util.TimeProvider;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.order.dto.OrderCreateCommand;
+import com.gachisa.order.dto.OrderResponse;
 import com.gachisa.order.service.OrderService;
 import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
 import com.gachisa.payment.dto.PaymentResponse;
@@ -68,8 +69,9 @@ public class PaymentRecoveryStateService {
         PaymentAttempt attempt = target.attempt();
         validatePayment(payment, attempt, result);
 
+        Long orderId = null;
         switch (result.status()) {
-            case "DONE" -> complete(payment, attempt);
+            case "DONE" -> orderId = complete(payment, attempt);
             case "CANCELED" -> refundCompletionService.reconcileCancellation(
                     payment,
                     result.cancellationReason(),
@@ -81,7 +83,7 @@ public class PaymentRecoveryStateService {
             case "EXPIRED" -> attempt.expire(timeProvider.now());
             default -> recordUnknownStatus(attempt, result.status());
         }
-        return PaymentResponse.from(payment, attempt);
+        return PaymentResponse.from(payment, attempt, orderId);
     }
 
     @Transactional
@@ -106,21 +108,22 @@ public class PaymentRecoveryStateService {
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ATTEMPT_NOT_FOUND));
     }
 
-    private void complete(Payment payment, PaymentAttempt attempt) {
-        if (attempt.getStatus() == PaymentAttemptStatus.PAID) {
-            return;
+    private Long complete(Payment payment, PaymentAttempt attempt) {
+        if (attempt.getStatus() != PaymentAttemptStatus.PAID) {
+            if (payment.getStatus() != PaymentStatus.READY
+                    || attempt.getStatus() != PaymentAttemptStatus.PROCESSING) {
+                throw new CustomException(ErrorCode.INVALID_STATUS_TRANSITION);
+            }
+            participationService.confirmPayment(payment.getParticipationId());
+            payment.complete(timeProvider.now());
+            attempt.complete(timeProvider.now());
         }
-        if (payment.getStatus() != PaymentStatus.READY
-                || attempt.getStatus() != PaymentAttemptStatus.PROCESSING) {
-            throw new CustomException(ErrorCode.INVALID_STATUS_TRANSITION);
-        }
+
         ParticipationPaymentInfo participation =
                 participationService.getPaymentInfo(payment.getParticipationId());
-        participationService.confirmPayment(payment.getParticipationId());
-        payment.complete(timeProvider.now());
-        attempt.complete(timeProvider.now());
-        orderService.createOrderIfAbsent(new OrderCreateCommand(
+        OrderResponse order = orderService.createOrderIfAbsent(new OrderCreateCommand(
                 payment.getParticipationId(), payment.getId(), participation.userId()));
+        return order.orderId();
     }
 
     private void validatePayment(Payment payment, PaymentAttempt attempt, PgPaymentQueryResult result) {

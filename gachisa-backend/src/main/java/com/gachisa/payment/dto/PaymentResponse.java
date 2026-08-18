@@ -11,6 +11,7 @@ public record PaymentResponse(
         Long paymentId,
         Long paymentAttemptId,
         Long participationId,
+        Long orderId,
         String pgOrderId,
         String pgPaymentKey,
         int amount,
@@ -28,10 +29,15 @@ public record PaymentResponse(
 ) {
 
     public static PaymentResponse from(Payment payment, PaymentAttempt attempt) {
+        return from(payment, attempt, null);
+    }
+
+    public static PaymentResponse from(Payment payment, PaymentAttempt attempt, Long orderId) {
         return new PaymentResponse(
                 payment.getId(),
                 attempt == null ? null : attempt.getId(),
                 payment.getParticipationId(),
+                orderId,
                 attempt == null ? null : attempt.getPgOrderId(),
                 attempt == null ? null : attempt.getPgPaymentKey(),
                 payment.getAmount(),

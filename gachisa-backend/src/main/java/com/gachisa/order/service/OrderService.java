@@ -3,6 +3,8 @@ package com.gachisa.order.service;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.util.TimeProvider;
+import com.gachisa.order.dto.DeliveryAddressRequest;
+import com.gachisa.order.dto.DeliveryResponse;
 import com.gachisa.order.dto.OrderCreateCommand;
 import com.gachisa.order.dto.OrderListResponse;
 import com.gachisa.order.dto.OrderResponse;
@@ -60,21 +62,62 @@ public class OrderService {
     @Transactional(readOnly = true)
     public OrderResponse getMyOrder(Long orderId, Long buyerId) {
         Order order = getOrder(orderId);
-        if (!order.getBuyerId().equals(buyerId)) {
-            throw new CustomException(ErrorCode.FORBIDDEN);
-        }
+        validateBuyer(order, buyerId);
         return OrderResponse.from(order);
     }
 
+    @Transactional(readOnly = true)
+    public Long getOrderIdByParticipationId(Long participationId) {
+        return orderRepository.findByParticipationId(participationId)
+                .map(Order::getId)
+                .orElse(null);
+    }
+
     @Transactional
-    public OrderResponse updateDeliveryStatus(Long orderId, DeliveryStatus deliveryStatus) {
+    public DeliveryResponse registerDeliveryAddress(Long orderId, Long buyerId,
+                                                    DeliveryAddressRequest request) {
         Order order = getOrder(orderId);
-        order.changeDeliveryStatus(deliveryStatus, timeProvider.now());
-        return OrderResponse.from(order);
+        validateBuyer(order, buyerId);
+        order.registerDeliveryAddress(
+                request.recipientName(),
+                request.recipientPhone(),
+                request.zipCode(),
+                request.address(),
+                request.addressDetail(),
+                request.deliveryRequest(),
+                timeProvider.now()
+        );
+        return DeliveryResponse.from(order);
+    }
+
+    @Transactional(readOnly = true)
+    public DeliveryResponse getMyDelivery(Long orderId, Long buyerId) {
+        Order order = getOrder(orderId);
+        validateBuyer(order, buyerId);
+        return DeliveryResponse.from(order);
+    }
+
+    @Transactional
+    public DeliveryResponse updateDeliveryStatusByAdmin(Long orderId, DeliveryStatus deliveryStatus) {
+        Order order = getOrder(orderId);
+        order.changeDeliveryStatusByAdmin(deliveryStatus, timeProvider.now());
+        return DeliveryResponse.from(order);
+    }
+
+    @Transactional
+    public int completeDeliveriesDue() {
+        LocalDateTime now = timeProvider.now();
+        return orderRepository.completeDeliveriesDue(now.minusDays(2), now);
     }
 
     private Order getOrder(Long orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
+    }
+
+    private void validateBuyer(Order order, Long buyerId) {
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new CustomException(ErrorCode.FORBIDDEN);
+        }
     }
 }
