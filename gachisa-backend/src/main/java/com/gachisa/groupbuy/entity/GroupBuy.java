@@ -37,7 +37,7 @@ public class GroupBuy {
     @Column(name = "current_count", nullable = false)
     private Integer currentCount;
 
-    @Column(name = "discount_rate", nullable = false)
+    @Column(name = "discount_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal discountRate;
 
     @Column(name = "open_at", nullable = false)
@@ -55,8 +55,8 @@ public class GroupBuy {
 
     @Builder
     private GroupBuy(Product product, ProductOption productOption, Integer targetCount,
-                      BigDecimal discountRate, LocalDateTime openAt, LocalDateTime deadline,
-                      Long sellerId) {
+                     BigDecimal discountRate, LocalDateTime openAt, LocalDateTime deadline,
+                     Long sellerId) {
         if (deadline.isBefore(openAt)) {
             throw new CustomException(ErrorCode.GROUP_BUY_INVALID_PERIOD);
         }
