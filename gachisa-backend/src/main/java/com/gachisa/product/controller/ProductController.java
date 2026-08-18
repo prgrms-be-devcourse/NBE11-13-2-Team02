@@ -1,6 +1,7 @@
 package com.gachisa.product.controller;
 
 import com.gachisa.global.security.CustomUserDetails;
+import com.gachisa.global.storage.ImageStorageService;
 import com.gachisa.product.dto.ProductCreateRequest;
 import com.gachisa.product.dto.ProductResponse;
 import com.gachisa.product.dto.ProductUpdateRequest;
@@ -8,6 +9,7 @@ import com.gachisa.product.service.ProductService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -18,8 +20,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -27,13 +31,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductController {
 
     private final ProductService productService;
+    private final ImageStorageService imageStorageService;
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('SELLER')")
     public ProductResponse createProduct(@AuthenticationPrincipal CustomUserDetails userDetails,
-                                          @RequestBody ProductCreateRequest request) {
-        return productService.createProduct(userDetails.getUserId(), request);
+                                          @RequestPart("data") ProductCreateRequest request,
+                                          @RequestPart(value = "image", required = false) MultipartFile image) {
+        String imageUrl = (image != null && !image.isEmpty()) ? imageStorageService.store(image) : null;
+        return productService.createProduct(userDetails.getUserId(), request, imageUrl);
     }
 
     @GetMapping
@@ -67,6 +74,15 @@ public class ProductController {
     @PreAuthorize("hasRole('SELLER')")
     public void deleteProduct(@AuthenticationPrincipal CustomUserDetails userDetails, @PathVariable Long productId) {
         productService.deleteProduct(productId, userDetails.getUserId());
+    }
+
+    @PatchMapping(value = "/{productId}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('SELLER')")
+    public ProductResponse updateProductImage(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                               @PathVariable Long productId,
+                                               @RequestPart("image") MultipartFile image) {
+        String imageUrl = imageStorageService.store(image);
+        return productService.updateProductImage(productId, userDetails.getUserId(), imageUrl);
     }
 
     @PatchMapping("/{productId}/resume")
