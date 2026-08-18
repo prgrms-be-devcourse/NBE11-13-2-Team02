@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.util.TimeProvider;
+import com.gachisa.order.dto.DeliveryAddressRequest;
 import com.gachisa.order.dto.OrderCreateCommand;
 import com.gachisa.order.entity.DeliveryStatus;
 import com.gachisa.order.entity.Order;
@@ -80,27 +81,63 @@ class OrderServiceTest {
     }
 
     @Test
-    void deliveryStatusChangesInOrder() {
+    void registeringAddressStartsShippingWithoutTrackingNumber() {
         Order order = order(1L, DeliveryStatus.PREPARING);
         given(orderRepository.findById(1L)).willReturn(Optional.of(order));
         given(timeProvider.now()).willReturn(NOW.plusHours(1));
 
-        var response = orderService.updateDeliveryStatus(1L, DeliveryStatus.SHIPPING);
+        var response = orderService.registerDeliveryAddress(1L, 30L, deliveryAddress());
 
         assertThat(response.deliveryStatus()).isEqualTo(DeliveryStatus.SHIPPING);
+        assertThat(response.carrier()).isEqualTo("자체배송");
+        assertThat(response.trackingNumber()).isNull();
+        assertThat(response.shippingStartedAt()).isEqualTo(NOW.plusHours(1));
+        assertThat(response.expectedDeliveryAt()).isEqualTo(NOW.plusDays(2).plusHours(1));
     }
 
     @Test
-    void deliveryStatusCannotSkipShipping() {
+    void anotherBuyerCannotRegisterDeliveryAddress() {
         Order order = order(1L, DeliveryStatus.PREPARING);
+        given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+        assertThatThrownBy(() ->
+                orderService.registerDeliveryAddress(1L, 999L, deliveryAddress()))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    void adminCanCorrectDeliveryStatus() {
+        Order order = order(1L, DeliveryStatus.PREPARING);
+        order.registerDeliveryAddress(
+                "구매자", "010-1234-5678", "06234",
+                "서울특별시 강남구", "101호", null, NOW);
         given(orderRepository.findById(1L)).willReturn(Optional.of(order));
         given(timeProvider.now()).willReturn(NOW.plusHours(1));
 
-        assertThatThrownBy(() ->
-                orderService.updateDeliveryStatus(1L, DeliveryStatus.DELIVERED))
-                .isInstanceOf(CustomException.class)
-                .extracting(exception -> ((CustomException) exception).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_DELIVERY_STATUS_TRANSITION);
+        var response = orderService.updateDeliveryStatusByAdmin(1L, DeliveryStatus.DELIVERED);
+
+        assertThat(response.deliveryStatus()).isEqualTo(DeliveryStatus.DELIVERED);
+        assertThat(response.deliveredAt()).isEqualTo(NOW.plusHours(1));
+    }
+
+    @Test
+    void completesShippingOrdersAfterTwoDays() {
+        given(timeProvider.now()).willReturn(NOW);
+        given(orderRepository.completeDeliveriesDue(NOW.minusDays(2), NOW)).willReturn(3);
+
+        int completedCount = orderService.completeDeliveriesDue();
+
+        assertThat(completedCount).isEqualTo(3);
+        verify(orderRepository).completeDeliveriesDue(NOW.minusDays(2), NOW);
+    }
+
+    private DeliveryAddressRequest deliveryAddress() {
+        return new DeliveryAddressRequest(
+                "구매자", "010-1234-5678", "06234",
+                "서울특별시 강남구", "101호", "문 앞에 놓아주세요"
+        );
     }
 
     private Order order(Long id, DeliveryStatus status) {
