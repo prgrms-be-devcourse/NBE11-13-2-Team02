@@ -18,6 +18,14 @@ spring:
     default-property-inclusion: non_null
     time-zone: Asia/Seoul
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:./uploads}
+
 jwt:
   secret: ${JWT_SECRET:change-this-secret-in-local-yml}
   access-token-validity: 30m

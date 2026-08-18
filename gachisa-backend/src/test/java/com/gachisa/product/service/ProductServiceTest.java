@@ -2,8 +2,6 @@ package com.gachisa.product.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -12,13 +10,10 @@ import com.gachisa.category.repository.CategoryRepository;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.product.dto.ProductCreateRequest;
-import com.gachisa.product.dto.ProductOptionRequest;
 import com.gachisa.product.dto.ProductResponse;
 import com.gachisa.product.dto.ProductUpdateRequest;
 import com.gachisa.product.entity.Product;
-import com.gachisa.product.entity.ProductOption;
 import com.gachisa.product.entity.ProductStatus;
-import com.gachisa.product.repository.ProductOptionRepository;
 import com.gachisa.product.repository.ProductRepository;
 import com.gachisa.user.entity.User;
 import com.gachisa.user.entity.UserRole;
@@ -46,9 +41,6 @@ class ProductServiceTest {
     private ProductRepository productRepository;
 
     @Mock
-    private ProductOptionRepository productOptionRepository;
-
-    @Mock
     private CategoryRepository categoryRepository;
 
     @Mock
@@ -58,66 +50,43 @@ class ProductServiceTest {
 
     @BeforeEach
     void setUp() {
-        productService = new ProductService(productRepository, productOptionRepository, categoryRepository, userRepository);
+        productService = new ProductService(productRepository, categoryRepository, userRepository);
     }
 
     @Test
-    void createProductAddsDefaultOptionWhenNoOptionsProvided() {
+    void createProductSetsStockFromRequest() {
         Category category = category(CATEGORY_ID, "생활/리빙");
         User seller = seller(SELLER_ID, "판매자1");
         given(categoryRepository.findById(CATEGORY_ID)).willReturn(Optional.of(category));
         given(userRepository.getReferenceById(SELLER_ID)).willReturn(seller);
-        ProductCreateRequest request = new ProductCreateRequest(
-                "텀블러", "보온 텀블러", 15000, CATEGORY_ID, "http://img/1.png", List.of());
+        ProductCreateRequest request = new ProductCreateRequest("텀블러", "보온 텀블러", 15000, 30, CATEGORY_ID);
 
-        ProductResponse response = productService.createProduct(SELLER_ID, request);
+        ProductResponse response = productService.createProduct(SELLER_ID, request, "http://img/1.png");
 
-        assertThat(response.options()).hasSize(1);
-        assertThat(response.options().get(0).optionName()).isEqualTo("기타");
-        assertThat(response.options().get(0).optionValue()).isEqualTo("기본");
-        assertThat(response.options().get(0).stock()).isEqualTo(0);
-    }
-
-    @Test
-    void createProductAddsGivenOptions() {
-        Category category = category(CATEGORY_ID, "식품");
-        User seller = seller(SELLER_ID, "판매자1");
-        given(categoryRepository.findById(CATEGORY_ID)).willReturn(Optional.of(category));
-        given(userRepository.getReferenceById(SELLER_ID)).willReturn(seller);
-        ProductCreateRequest request = new ProductCreateRequest(
-                "원두커피", "원두 1kg", 16000, CATEGORY_ID, null,
-                List.of(new ProductOptionRequest("용량", "1kg", 50)));
-
-        ProductResponse response = productService.createProduct(SELLER_ID, request);
-
-        assertThat(response.options()).hasSize(1);
-        assertThat(response.options().get(0).optionValue()).isEqualTo("1kg");
-        assertThat(response.options().get(0).stock()).isEqualTo(50);
+        assertThat(response.stock()).isEqualTo(30);
+        assertThat(response.imageUrl()).isEqualTo("http://img/1.png");
     }
 
     @Test
     void createProductThrowsWhenCategoryNotFound() {
         given(categoryRepository.findById(CATEGORY_ID)).willReturn(Optional.empty());
-        ProductCreateRequest request = new ProductCreateRequest(
-                "텀블러", "desc", 1000, CATEGORY_ID, null, List.of());
+        ProductCreateRequest request = new ProductCreateRequest("텀블러", "desc", 1000, 10, CATEGORY_ID);
 
-        assertThatThrownBy(() -> productService.createProduct(SELLER_ID, request))
+        assertThatThrownBy(() -> productService.createProduct(SELLER_ID, request, null))
                 .isInstanceOf(CustomException.class)
                 .extracting(exception -> ((CustomException) exception).getErrorCode())
                 .isEqualTo(ErrorCode.CATEGORY_NOT_FOUND);
     }
 
     @Test
-    void getProductReturnsProductWithOptions() {
-        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
-        ProductOption option = option(1L, product, "기타", "기본", 10);
+    void getProductReturnsProductWithStock() {
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 25);
         given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
-        given(productOptionRepository.findByProductId(PRODUCT_ID)).willReturn(List.of(option));
 
         ProductResponse response = productService.getProduct(PRODUCT_ID);
 
         assertThat(response.id()).isEqualTo(PRODUCT_ID);
-        assertThat(response.options()).hasSize(1);
+        assertThat(response.stock()).isEqualTo(25);
     }
 
     @Test
@@ -132,9 +101,8 @@ class ProductServiceTest {
 
     @Test
     void searchProductsDelegatesFiltersToRepository() {
-        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
         given(productRepository.search(CATEGORY_ID, 1000, 20000, "원두")).willReturn(List.of(product));
-        given(productOptionRepository.findByProductId(PRODUCT_ID)).willReturn(List.of());
 
         List<ProductResponse> responses = productService.searchProducts(CATEGORY_ID, 1000, 20000, "원두");
 
@@ -144,20 +112,31 @@ class ProductServiceTest {
 
     @Test
     void updateProductUpdatesOnlyProvidedFields() {
-        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
         given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
-        given(productOptionRepository.findByProductId(PRODUCT_ID)).willReturn(List.of());
         ProductUpdateRequest request = new ProductUpdateRequest(null, null, 18000, null, null);
 
         ProductResponse response = productService.updateProduct(PRODUCT_ID, SELLER_ID, request);
 
         assertThat(response.basePrice()).isEqualTo(18000);
         assertThat(response.name()).isEqualTo("텀블러");
+        assertThat(response.stock()).isEqualTo(10);
+    }
+
+    @Test
+    void updateProductUpdatesStock() {
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
+        given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+        ProductUpdateRequest request = new ProductUpdateRequest(null, null, null, 40, null);
+
+        ProductResponse response = productService.updateProduct(PRODUCT_ID, SELLER_ID, request);
+
+        assertThat(response.stock()).isEqualTo(40);
     }
 
     @Test
     void updateProductThrowsWhenNotOwner() {
-        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
         given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
         ProductUpdateRequest request = new ProductUpdateRequest("해킹시도", null, null, null, null);
 
@@ -169,10 +148,10 @@ class ProductServiceTest {
 
     @Test
     void updateProductThrowsWhenNewCategoryNotFound() {
-        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
         given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
         given(categoryRepository.findById(999L)).willReturn(Optional.empty());
-        ProductUpdateRequest request = new ProductUpdateRequest(null, null, null, 999L, null);
+        ProductUpdateRequest request = new ProductUpdateRequest(null, null, null, null, 999L);
 
         assertThatThrownBy(() -> productService.updateProduct(PRODUCT_ID, SELLER_ID, request))
                 .isInstanceOf(CustomException.class)
@@ -182,17 +161,17 @@ class ProductServiceTest {
 
     @Test
     void deleteProductStopsSaleWhenOwner() {
-        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
         given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 
         productService.deleteProduct(PRODUCT_ID, SELLER_ID);
 
-        assertThat(product.getStatus()).isEqualTo(ProductStatus.STOPPED);
+        assertThat(product.getStatus()).isEqualTo(ProductStatus.SUSPENDED);
     }
 
     @Test
     void deleteProductThrowsWhenNotOwner() {
-        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE);
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
         given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
 
         assertThatThrownBy(() -> productService.deleteProduct(PRODUCT_ID, OTHER_SELLER_ID))
@@ -204,39 +183,28 @@ class ProductServiceTest {
 
     @Test
     void resumeProductResumesSaleWhenOwner() {
-        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.STOPPED);
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.SUSPENDED, 10);
         given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
-        given(productOptionRepository.findByProductId(PRODUCT_ID)).willReturn(List.of());
 
         ProductResponse response = productService.resumeProduct(PRODUCT_ID, SELLER_ID);
 
         assertThat(response.status()).isEqualTo(ProductStatus.ON_SALE.name());
     }
 
-    private Product product(Long id, Long sellerId, ProductStatus status) {
+    private Product product(Long id, Long sellerId, ProductStatus status, int stock) {
         Product product = Product.builder()
                 .seller(seller(sellerId, "판매자1"))
                 .category(category(CATEGORY_ID, "생활/리빙"))
                 .name("텀블러")
                 .description("보온 텀블러")
                 .basePrice(15000)
+                .stock(stock)
                 .imageUrl("http://img/1.png")
                 .status(status)
                 .createdAt(NOW)
                 .build();
         ReflectionTestUtils.setField(product, "id", id);
         return product;
-    }
-
-    private ProductOption option(Long id, Product product, String optionName, String optionValue, int stock) {
-        ProductOption option = ProductOption.builder()
-                .product(product)
-                .optionName(optionName)
-                .optionValue(optionValue)
-                .stock(stock)
-                .build();
-        ReflectionTestUtils.setField(option, "id", id);
-        return option;
     }
 
     private Category category(Long id, String name) {

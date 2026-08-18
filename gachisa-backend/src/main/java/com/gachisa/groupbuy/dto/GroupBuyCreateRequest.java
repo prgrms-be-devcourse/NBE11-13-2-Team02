@@ -15,9 +15,6 @@ public class GroupBuyCreateRequest {
     private Long productId;
 
     @NotNull
-    private Long productOptionId;
-
-    @NotNull
     @Min(1)
     private Integer targetCount;
 

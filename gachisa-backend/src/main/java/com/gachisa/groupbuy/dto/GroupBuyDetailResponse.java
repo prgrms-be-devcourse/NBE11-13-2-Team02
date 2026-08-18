@@ -12,9 +12,6 @@ public class GroupBuyDetailResponse {
     private final Long groupBuyId;
     private final Long productId;
     private final String productName;
-    private final Long productOptionId;
-    private final String optionName;
-    private final String optionValue;
     private final BigDecimal discountRate;
     private final Integer currentCount;
     private final Integer targetCount;
@@ -28,9 +25,6 @@ public class GroupBuyDetailResponse {
         this.groupBuyId = g.getId();
         this.productId = g.getProduct().getId();
         this.productName = g.getProduct().getName();
-        this.productOptionId = g.getProductOption().getId();
-        this.optionName = g.getProductOption().getOptionName();
-        this.optionValue = g.getProductOption().getOptionValue();
         this.discountRate = g.getDiscountRate();
         this.currentCount = g.getCurrentCount();
         this.targetCount = g.getTargetCount();
