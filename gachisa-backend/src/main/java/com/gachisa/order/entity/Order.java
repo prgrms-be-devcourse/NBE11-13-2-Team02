@@ -1,16 +1,14 @@
 package com.gachisa.order.entity;
 
-import com.gachisa.participation.entity.Participation;
+import com.gachisa.global.exception.CustomException;
+import com.gachisa.global.exception.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -28,30 +26,45 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "participation_id", nullable = false, unique = true)
-    private Participation participation;
+    @Column(nullable = false, unique = true)
+    private Long participationId;
+
+    @Column(nullable = false, unique = true)
+    private Long paymentId;
+
+    @Column(nullable = false)
+    private Long buyerId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DeliveryStatus deliveryStatus;
 
-    @Column(nullable = false)
-    private String address;
-
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
     @Builder
-    private Order(Participation participation, DeliveryStatus deliveryStatus, String address,
-                   LocalDateTime createdAt) {
-        this.participation = participation;
+    private Order(Long participationId, Long paymentId, Long buyerId,
+                  DeliveryStatus deliveryStatus, LocalDateTime createdAt,
+                  LocalDateTime updatedAt) {
+        this.participationId = participationId;
+        this.paymentId = paymentId;
+        this.buyerId = buyerId;
         this.deliveryStatus = deliveryStatus;
-        this.address = address;
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
-    public void changeDeliveryStatus(DeliveryStatus deliveryStatus) {
-        this.deliveryStatus = deliveryStatus;
+    public void changeDeliveryStatus(DeliveryStatus newStatus, LocalDateTime changedAt) {
+        if (deliveryStatus == newStatus) {
+            return;
+        }
+        if (!deliveryStatus.canChangeTo(newStatus)) {
+            throw new CustomException(ErrorCode.INVALID_DELIVERY_STATUS_TRANSITION);
+        }
+        deliveryStatus = newStatus;
+        updatedAt = changedAt;
     }
 }

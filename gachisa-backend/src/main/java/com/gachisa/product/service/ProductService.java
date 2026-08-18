@@ -6,6 +6,7 @@ import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.product.dto.ProductCreateRequest;
 import com.gachisa.product.dto.ProductOptionRequest;
+import com.gachisa.product.dto.ProductPaymentInfo;
 import com.gachisa.product.dto.ProductResponse;
 import com.gachisa.product.dto.ProductUpdateRequest;
 import com.gachisa.product.entity.Product;
@@ -81,6 +82,11 @@ public class ProductService {
     public ProductResponse getProduct(Long productId) {
         Product product = getProductOrThrow(productId);
         return ProductResponse.of(product, productOptionRepository.findByProductId(productId));
+    }
+
+    public ProductPaymentInfo getPaymentInfo(Long productId) {
+        Product product = getProductOrThrow(productId);
+        return new ProductPaymentInfo(product.getId(), product.getBasePrice());
     }
 
     public List<ProductResponse> searchProducts(Long categoryId, Integer minPrice, Integer maxPrice, String keyword) {

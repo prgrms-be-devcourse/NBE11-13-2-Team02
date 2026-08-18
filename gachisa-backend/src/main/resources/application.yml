@@ -29,6 +29,11 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+payment:
+  toss:
+    base-url: https://api.tosspayments.com
+    secret-key: ${TOSS_SECRET_KEY:}
+
 logging:
   level:
     org.hibernate.SQL: debug
