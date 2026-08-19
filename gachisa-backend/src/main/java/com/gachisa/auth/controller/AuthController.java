@@ -31,6 +31,20 @@ public class AuthController {
         return new LoginResponse(result.accessToken(), result.tokenType(), result.expiresIn());
     }
 
+    @PostMapping("/oauth/kakao")
+    public LoginResponse loginWithKakao(@RequestBody OAuthLoginRequest request, HttpServletResponse response) {
+        AuthService.LoginResult result = authService.loginWithKakao(request.code(), request.redirectUri());
+        setRefreshCookie(response, result.rawRefreshToken());
+        return new LoginResponse(result.accessToken(), result.tokenType(), result.expiresIn());
+    }
+
+    @PostMapping("/oauth/naver")
+    public LoginResponse loginWithNaver(@RequestBody OAuthLoginRequest request, HttpServletResponse response) {
+        AuthService.LoginResult result = authService.loginWithNaver(request.code(), request.redirectUri(), request.state());
+        setRefreshCookie(response, result.rawRefreshToken());
+        return new LoginResponse(result.accessToken(), result.tokenType(), result.expiresIn());
+    }
+
     @PostMapping("/reissue")
     public ReissueResponse reissue(@CookieValue(REFRESH_COOKIE_NAME) String rawRefreshToken,
                                    HttpServletResponse response) {

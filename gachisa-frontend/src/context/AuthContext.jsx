@@ -49,6 +49,24 @@ export function AuthProvider({ children }) {
     [fetchAndSetUser],
   )
 
+  const loginWithKakao = useCallback(
+    async (code, redirectUri) => {
+      const { data } = await authApi.loginWithKakao(code, redirectUri)
+      setAccessToken(data.accessToken)
+      await fetchAndSetUser()
+    },
+    [fetchAndSetUser],
+  )
+
+  const loginWithNaver = useCallback(
+    async (code, redirectUri, state) => {
+      const { data } = await authApi.loginWithNaver(code, redirectUri, state)
+      setAccessToken(data.accessToken)
+      await fetchAndSetUser()
+    },
+    [fetchAndSetUser],
+  )
+
   const signUp = useCallback((payload) => authApi.signUp(payload), [])
 
   const logout = useCallback(async () => {
@@ -69,11 +87,13 @@ export function AuthProvider({ children }) {
       isSeller: user?.role === 'ROLE_SELLER',
       isAdmin: user?.role === 'ROLE_ADMIN',
       login,
+      loginWithKakao,
+      loginWithNaver,
       signUp,
       logout,
       refreshUser: fetchAndSetUser,
     }),
-    [user, initializing, login, signUp, logout, fetchAndSetUser],
+    [user, initializing, login, loginWithKakao, loginWithNaver, signUp, logout, fetchAndSetUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
