@@ -80,6 +80,7 @@ public enum ErrorCode {
     INVALID_SIGNUP_ROLE(HttpStatus.BAD_REQUEST, "회원가입 시 선택할 수 없는 권한입니다."),
     EMAIL_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."),
+    OAUTH_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "소셜 로그인 제공자와 통신 중 오류가 발생했습니다."),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");

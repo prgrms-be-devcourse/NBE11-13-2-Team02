@@ -5,6 +5,7 @@ import RoleRoute from '../components/RoleRoute.jsx'
 
 import LoginPage from '../pages/LoginPage.jsx'
 import SignUpPage from '../pages/SignUpPage.jsx'
+import SocialCallbackPage from '../pages/SocialCallbackPage.jsx'
 
 import GroupBuyListPage from '../pages/GroupBuyListPage.jsx'
 import GroupBuyDetailPage from '../pages/GroupBuyDetailPage.jsx'
@@ -35,6 +36,7 @@ export default function Router() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/oauth/:provider" element={<SocialCallbackPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/payments/success" element={<PaymentSuccessPage />} />
       <Route path="/payments/fail" element={<PaymentFailPage />} />
