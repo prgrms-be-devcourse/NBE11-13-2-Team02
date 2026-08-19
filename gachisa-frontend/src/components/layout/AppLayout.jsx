@@ -1,9 +1,8 @@
-import { useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
 import Box from '@mui/material/Box'
-import InputBase from '@mui/material/InputBase'
 import IconButton from '@mui/material/IconButton'
 import Avatar from '@mui/material/Avatar'
 import Menu from '@mui/material/Menu'
@@ -11,24 +10,86 @@ import MenuItem from '@mui/material/MenuItem'
 import Divider from '@mui/material/Divider'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Select from '@mui/material/Select'
+import Alert from '@mui/material/Alert'
 import SearchIcon from '@mui/icons-material/Search'
+import CloseIcon from '@mui/icons-material/Close'
 import Logo from '../Logo.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { getCategories } from '../../api/categoryApi'
+
+const emptyForm = { keyword: '', categoryId: '', minPrice: '', maxPrice: '' }
 
 export default function AppLayout() {
   const { user, isAuthenticated, isSeller, isAdmin, logout } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [anchorEl, setAnchorEl] = useState(null)
-  const [keyword, setKeyword] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [form, setForm] = useState(emptyForm)
+  const [filterError, setFilterError] = useState('')
+  const [categories, setCategories] = useState([])
+
+  useEffect(() => {
+    getCategories()
+      .then(({ data }) => setCategories(data ?? []))
+      .catch(() => setCategories([]))
+  }, [])
 
   const goTo = (path) => {
     setAnchorEl(null)
     navigate(path)
   }
 
+  const openSearch = () => {
+    setForm({
+      keyword: searchParams.get('keyword') ?? '',
+      categoryId: searchParams.get('categoryId') ?? '',
+      minPrice: searchParams.get('minPrice') ?? '',
+      maxPrice: searchParams.get('maxPrice') ?? '',
+    })
+    setFilterError('')
+    setSearchOpen(true)
+  }
+
+  const handleFormChange = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  // 가격 필드는 음수 입력 자체를 막는다 (타이핑/붙여넣기 모두 무시)
+  const handlePriceChange = (field) => (e) => {
+    const value = e.target.value
+    if (value !== '' && Number(value) < 0) return
+    setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
   const handleSearchSubmit = (e) => {
     e.preventDefault()
-    navigate(`/${keyword ? `?keyword=${encodeURIComponent(keyword)}` : ''}`)
+    setFilterError('')
+
+    const min = form.minPrice === '' ? null : Number(form.minPrice)
+    const max = form.maxPrice === '' ? null : Number(form.maxPrice)
+
+    if ((min !== null && min < 0) || (max !== null && max < 0)) {
+      setFilterError('가격은 0원 이상으로 입력해주세요.')
+      return
+    }
+    if (min !== null && max !== null && min > max) {
+      setFilterError('최소 가격이 최대 가격보다 클 수 없습니다.')
+      return
+    }
+
+    const params = new URLSearchParams()
+    if (form.keyword) params.set('keyword', form.keyword)
+    if (form.categoryId) params.set('categoryId', form.categoryId)
+    if (form.minPrice !== '') params.set('minPrice', form.minPrice)
+    if (form.maxPrice !== '') params.set('maxPrice', form.maxPrice)
+
+    setSearchOpen(false)
+    navigate(`/${params.toString() ? `?${params.toString()}` : ''}`)
   }
 
   const handleLogout = async () => {
@@ -47,28 +108,9 @@ export default function AppLayout() {
 
           <Box sx={{ flexGrow: 1 }} />
 
-          <Box
-            component="form"
-            onSubmit={handleSearchSubmit}
-            sx={{
-              display: { xs: 'none', sm: 'flex' },
-              alignItems: 'center',
-              bgcolor: 'grey.100',
-              borderRadius: 999,
-              px: 2,
-              py: 0.6,
-              width: 280,
-            }}
-          >
-            <SearchIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
-            <InputBase
-              placeholder="어떤 공동구매를 찾으세요?"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              fullWidth
-              sx={{ fontSize: 14 }}
-            />
-          </Box>
+          <IconButton onClick={openSearch} aria-label="검색">
+            <SearchIcon />
+          </IconButton>
 
           {isAuthenticated ? (
             <>
@@ -112,6 +154,78 @@ export default function AppLayout() {
           )}
         </Toolbar>
       </AppBar>
+
+      <Dialog
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        sx={{ '& .MuiDialog-container': { alignItems: 'flex-start' } }}
+        PaperProps={{ sx: { mt: 10, borderRadius: 3 } }}
+      >
+        <Box component="form" onSubmit={handleSearchSubmit} sx={{ p: 3 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+            <Typography variant="h6" fontWeight={800}>
+              상세검색
+            </Typography>
+            <IconButton onClick={() => setSearchOpen(false)} aria-label="닫기" size="small">
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+
+          <Stack spacing={2}>
+            <TextField
+              label="키워드"
+              placeholder="어떤 공동구매를 찾으세요?"
+              value={form.keyword}
+              onChange={handleFormChange('keyword')}
+              autoFocus
+              fullWidth
+              size="small"
+            />
+            <FormControl fullWidth size="small">
+              <InputLabel id="nav-category-filter-label">카테고리</InputLabel>
+              <Select
+                labelId="nav-category-filter-label"
+                label="카테고리"
+                value={form.categoryId}
+                onChange={handleFormChange('categoryId')}
+              >
+                <MenuItem value="">전체</MenuItem>
+                {categories.map((c) => (
+                  <MenuItem key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="최소 가격"
+                type="number"
+                value={form.minPrice}
+                onChange={handlePriceChange('minPrice')}
+                inputProps={{ min: 0 }}
+                fullWidth
+                size="small"
+              />
+              <TextField
+                label="최대 가격"
+                type="number"
+                value={form.maxPrice}
+                onChange={handlePriceChange('maxPrice')}
+                inputProps={{ min: 0 }}
+                fullWidth
+                size="small"
+              />
+            </Stack>
+            {filterError && <Alert severity="warning">{filterError}</Alert>}
+            <Button type="submit" variant="contained" size="large" fullWidth>
+              검색
+            </Button>
+          </Stack>
+        </Box>
+      </Dialog>
 
       <Box sx={{ maxWidth: 1200, mx: 'auto', px: { xs: 2, sm: 3 }, py: 4 }}>
         <Outlet />
