@@ -12,6 +12,7 @@ import Snackbar from '@mui/material/Snackbar'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getErrorMessage } from '../api/errorMessage'
 import Logo from '../components/Logo.jsx'
+import { buildKakaoAuthUrl, buildNaverAuthUrl, isKakaoLoginEnabled, isNaverLoginEnabled } from '../utils/socialAuth'
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -23,6 +24,22 @@ export default function LoginPage() {
   const [soonOpen, setSoonOpen] = useState(false)
 
   const handleChange = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const handleKakaoLogin = () => {
+    if (!isKakaoLoginEnabled()) {
+      setSoonOpen(true)
+      return
+    }
+    window.location.href = buildKakaoAuthUrl()
+  }
+
+  const handleNaverLogin = () => {
+    if (!isNaverLoginEnabled()) {
+      setSoonOpen(true)
+      return
+    }
+    window.location.href = buildNaverAuthUrl()
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -97,14 +114,14 @@ export default function LoginPage() {
 
             <Button
               size="large"
-              onClick={() => setSoonOpen(true)}
+              onClick={handleKakaoLogin}
               sx={{ bgcolor: '#FEE500', color: '#3C1E1E', py: 1.2, '&:hover': { bgcolor: '#FADA00' } }}
             >
               카카오로 시작하기
             </Button>
             <Button
               size="large"
-              onClick={() => setSoonOpen(true)}
+              onClick={handleNaverLogin}
               sx={{ bgcolor: '#03C75A', color: '#fff', py: 1.2, '&:hover': { bgcolor: '#02B350' } }}
             >
               네이버로 시작하기

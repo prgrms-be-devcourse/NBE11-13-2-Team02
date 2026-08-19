@@ -4,11 +4,12 @@
 -- 앱을 끄면 테이블 자체가 삭제되므로, 이 파일은 항상 최신 스키마에 맞게 유지하면 됩니다.
 
 -- 비밀번호는 전부 '1234' (BCryptPasswordEncoder로 해시한 값)
-INSERT INTO users (email, password, name, role, created_at) VALUES
-                                                                 ('buyer1@test.com', '$2a$10$WtWTKE7oj11ctlGs9G5wNuLSBbSapVXma07TWX3Qf9ZcVcTye4N1y', '구매자1', 'ROLE_BUYER', NOW()),
-                                                                 ('buyer2@test.com', '$2a$10$WtWTKE7oj11ctlGs9G5wNuLSBbSapVXma07TWX3Qf9ZcVcTye4N1y', '구매자2', 'ROLE_BUYER', NOW()),
-                                                                 ('seller1@test.com', '$2a$10$WtWTKE7oj11ctlGs9G5wNuLSBbSapVXma07TWX3Qf9ZcVcTye4N1y', '판매자1', 'ROLE_SELLER', NOW()),
-                                                                 ('admin@test.com',  '$2a$10$WtWTKE7oj11ctlGs9G5wNuLSBbSapVXma07TWX3Qf9ZcVcTye4N1y', '관리자',  'ROLE_ADMIN', NOW());
+-- provider를 명시 안 하면 MySQL이 NOT NULL enum 컬럼에 임의의 기본값(정의 순서상 첫 값)을 넣어버려서 반드시 명시해야 함
+INSERT INTO users (email, password, name, role, provider, created_at) VALUES
+                                                                 ('buyer1@test.com', '$2a$10$WtWTKE7oj11ctlGs9G5wNuLSBbSapVXma07TWX3Qf9ZcVcTye4N1y', '구매자1', 'ROLE_BUYER', 'LOCAL', NOW()),
+                                                                 ('buyer2@test.com', '$2a$10$WtWTKE7oj11ctlGs9G5wNuLSBbSapVXma07TWX3Qf9ZcVcTye4N1y', '구매자2', 'ROLE_BUYER', 'LOCAL', NOW()),
+                                                                 ('seller1@test.com', '$2a$10$WtWTKE7oj11ctlGs9G5wNuLSBbSapVXma07TWX3Qf9ZcVcTye4N1y', '판매자1', 'ROLE_SELLER', 'LOCAL', NOW()),
+                                                                 ('admin@test.com',  '$2a$10$WtWTKE7oj11ctlGs9G5wNuLSBbSapVXma07TWX3Qf9ZcVcTye4N1y', '관리자',  'ROLE_ADMIN', 'LOCAL', NOW());
 
 INSERT INTO category (name, parent_id) VALUES
                                            ('생활/리빙', NULL),
