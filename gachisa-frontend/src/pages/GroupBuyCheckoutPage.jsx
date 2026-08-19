@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ANONYMOUS, loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
@@ -21,6 +21,8 @@ import { formatPrice } from '../utils/statusMeta'
 
 const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+// 정책상 1인당 참여 수량은 항상 1개로 고정한다 (수량 선택 UI 없음).
+const PARTICIPATION_QUANTITY = 1
 
 async function waitForAdmission(groupBuyId, queueToken, firstStatus, onWaiting) {
   let queueStatus = firstStatus
@@ -38,9 +40,7 @@ async function waitForAdmission(groupBuyId, queueToken, firstStatus, onWaiting) 
 
 export default function GroupBuyCheckoutPage() {
   const { groupBuyId } = useParams()
-  const location = useLocation()
   const navigate = useNavigate()
-  const quantity = location.state?.quantity ?? 1
 
   const [groupBuy, setGroupBuy] = useState(null)
   const [product, setProduct] = useState(null)
@@ -49,6 +49,8 @@ export default function GroupBuyCheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('CARD')
   const [submitting, setSubmitting] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
+  // 결제 단계에서 실패해 재시도하더라도 참여 신청(participate)은 세션당 한 번만 호출한다.
+  const participationRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -78,8 +80,8 @@ export default function GroupBuyCheckoutPage() {
   }
   if (!groupBuy || !product) return null
 
-  const originalPrice = product.basePrice * quantity
-  const discountAmount = Math.round(product.basePrice * groupBuy.discountRate) * quantity
+  const originalPrice = product.basePrice * PARTICIPATION_QUANTITY
+  const discountAmount = Math.round(product.basePrice * groupBuy.discountRate) * PARTICIPATION_QUANTITY
   const totalPrice = originalPrice - discountAmount
 
   const handleSubmit = async () => {
@@ -90,8 +92,12 @@ export default function GroupBuyCheckoutPage() {
         throw new Error('VITE_TOSS_CLIENT_KEY 환경변수가 설정되어 있지 않습니다.')
       }
 
-      setStatusMessage('참여 신청 중...')
-      const { data: participation } = await participate(groupBuyId, quantity)
+      if (!participationRef.current) {
+        setStatusMessage('참여 신청 중...')
+        const { data } = await participate(groupBuyId, PARTICIPATION_QUANTITY)
+        participationRef.current = data
+      }
+      const participation = participationRef.current
 
       setStatusMessage('결제 대기열 확인 중...')
       const idempotencyKey = crypto.randomUUID()
@@ -167,7 +173,7 @@ export default function GroupBuyCheckoutPage() {
             <Box>
               <Typography fontWeight={700}>{groupBuy.productName}</Typography>
               <Typography variant="body2" color="text.secondary">
-                수량 {quantity}개
+                수량 {PARTICIPATION_QUANTITY}개
               </Typography>
             </Box>
           </Stack>

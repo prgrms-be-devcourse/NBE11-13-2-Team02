@@ -3,10 +3,13 @@
 // 상품 목록(GET /products, /products/search)을 불러와 이름으로 매칭해 best-effort로 채운다.
 // 또한 필터가 걸리면 백엔드 페이지네이션과 클라이언트 필터링이 어긋나므로, 필터가 있을 때는
 // 큰 사이즈로 한 번에 가져와 클라이언트에서 걸러서 보여준다(페이지네이션 숨김).
+// 가격(최소/최대) 필터는 백엔드 /products/search에 위임하지 않는다 — 그 API는 Product.basePrice(정가)
+// 로만 필터링하는데, 할인율은 Product가 아니라 GroupBuy에 있는 값이라 정가 필터는 사용자가 실제로
+// 낼 할인가와 어긋난다. 그래서 카테고리/키워드만 백엔드에 위임하고, 가격은 아래 getDiscountedPrice로
+// 계산한 할인가 기준으로 클라이언트에서 직접 걸러낸다.
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
-import Paper from '@mui/material/Paper'
 import Grid from '@mui/material/Grid'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
@@ -18,15 +21,8 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
 import Pagination from '@mui/material/Pagination'
-import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
-import Select from '@mui/material/Select'
-import MenuItem from '@mui/material/MenuItem'
-import Collapse from '@mui/material/Collapse'
 import StorefrontIcon from '@mui/icons-material/Storefront'
-import TuneIcon from '@mui/icons-material/Tune'
 import { getGroupBuyList } from '../api/groupBuyApi'
 import { getProducts, searchProducts } from '../api/productApi'
 import { getCategories } from '../api/categoryApi'
@@ -36,7 +32,13 @@ import { GROUP_BUY_STATUS, formatPrice, statusMeta } from '../utils/statusMeta'
 
 const PAGE_SIZE = 9
 const FILTERED_SIZE = 100
-const emptyForm = { keyword: '', categoryId: '', minPrice: '', maxPrice: '' }
+const SORT_OPTIONS = [
+  { value: 'deadline', label: '마감임박순' },
+  { value: 'popular', label: '인기순' },
+  { value: 'discount', label: '할인가순' },
+  { value: 'priceLow', label: '낮은 가격순' },
+  { value: 'priceHigh', label: '높은 가격순' },
+]
 
 export default function GroupBuyListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -46,28 +48,15 @@ export default function GroupBuyListPage() {
   const maxPrice = searchParams.get('maxPrice') ?? ''
   const hasFilter = Boolean(categoryId || keyword || minPrice || maxPrice)
 
-  const [form, setForm] = useState({ keyword, categoryId, minPrice, maxPrice })
-  const [filterError, setFilterError] = useState('')
-  const [filterOpen, setFilterOpen] = useState(hasFilter)
-
   const [page, setPage] = useState(0)
   const [result, setResult] = useState({ content: [], totalPages: 0 })
   const [productsByName, setProductsByName] = useState({})
-  const [allowedNames, setAllowedNames] = useState(null) // null: 필터 없음(전체 허용)
+  const [allowedNames, setAllowedNames] = useState(null) // null: 카테고리/키워드 필터 없음(전체 허용)
+  const [namesLoading, setNamesLoading] = useState(false)
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sort, setSort] = useState('deadline') // deadline: 마감임박순, popular: 인기순
-
-  // 사이드바 카테고리 클릭 등 URL이 바깥에서 바뀌면 필터 입력폼도 맞춰준다.
-  useEffect(() => {
-    setForm({ keyword, categoryId, minPrice, maxPrice })
-  }, [keyword, categoryId, minPrice, maxPrice])
-
-  // 네비바 검색 등으로 필터가 걸린 채 들어오면 상세검색 패널을 자동으로 펼쳐 보여준다.
-  useEffect(() => {
-    if (hasFilter) setFilterOpen(true)
-  }, [hasFilter])
 
   useEffect(() => {
     getCategories()
@@ -84,18 +73,19 @@ export default function GroupBuyListPage() {
       .catch(() => {})
   }, [])
 
-  // 필터가 걸리면 검색 결과 상품명 집합을 구해 공동구매 목록을 걸러낸다.
+  // 카테고리/키워드가 걸리면 검색 결과 상품명 집합을 구해 공동구매 목록을 걸러낸다.
+  // 가격은 여기서 백엔드에 넘기지 않는다 (정가 기준이라 할인가와 어긋남) — sorted에서 직접 필터링한다.
   useEffect(() => {
-    if (!hasFilter) {
+    if (!categoryId && !keyword) {
       setAllowedNames(null)
+      setNamesLoading(false)
       return
     }
     let cancelled = false
+    setNamesLoading(true)
     searchProducts({
       categoryId: categoryId || undefined,
       keyword: keyword || undefined,
-      minPrice: minPrice === '' ? undefined : Number(minPrice),
-      maxPrice: maxPrice === '' ? undefined : Number(maxPrice),
     })
       .then(({ data }) => {
         if (cancelled) return
@@ -104,10 +94,13 @@ export default function GroupBuyListPage() {
       .catch(() => {
         if (!cancelled) setAllowedNames(new Set())
       })
+      .finally(() => {
+        if (!cancelled) setNamesLoading(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [hasFilter, categoryId, keyword, minPrice, maxPrice])
+  }, [categoryId, keyword])
 
   useEffect(() => {
     setPage(0)
@@ -132,17 +125,49 @@ export default function GroupBuyListPage() {
     }
   }, [page, hasFilter])
 
+  // GroupBuyResponse에 가격 필드가 없어서, 카드에 이미 표시 중인 best-effort 할인 적용가
+  // (상품명 매칭 성공한 경우만 계산됨)를 그대로 가격 정렬 기준으로 재사용한다.
+  // 매칭 안 된(가격을 모르는) 항목은 어느 정렬 방향이든 항상 맨 뒤로 보낸다.
+  const getDiscountedPrice = (gb) => {
+    const product = productsByName[gb.productName]
+    if (!product || typeof gb.discountRate !== 'number') return null
+    return Math.round(product.basePrice * (1 - gb.discountRate))
+  }
+
   const sorted = useMemo(() => {
     const content = result.content ?? []
-    const filtered = allowedNames ? content.filter((gb) => allowedNames.has(gb.productName)) : content
+    const byNames = allowedNames ? content.filter((gb) => allowedNames.has(gb.productName)) : content
+    const hasPriceFilter = minPrice !== '' || maxPrice !== ''
+    const filtered = hasPriceFilter
+      ? byNames.filter((gb) => {
+          const price = getDiscountedPrice(gb)
+          if (price == null) return false
+          if (minPrice !== '' && price < Number(minPrice)) return false
+          if (maxPrice !== '' && price > Number(maxPrice)) return false
+          return true
+        })
+      : byNames
     const copy = [...filtered]
     if (sort === 'popular') {
       copy.sort((a, b) => (b.currentCount ?? 0) - (a.currentCount ?? 0))
+    } else if (sort === 'discount') {
+      copy.sort((a, b) => (b.discountRate ?? 0) - (a.discountRate ?? 0))
+    } else if (sort === 'priceLow' || sort === 'priceHigh') {
+      const direction = sort === 'priceLow' ? 1 : -1
+      copy.sort((a, b) => {
+        const priceA = getDiscountedPrice(a)
+        const priceB = getDiscountedPrice(b)
+        if (priceA == null && priceB == null) return 0
+        if (priceA == null) return 1
+        if (priceB == null) return -1
+        return (priceA - priceB) * direction
+      })
     } else {
       copy.sort((a, b) => new Date(a.deadline ?? 0) - new Date(b.deadline ?? 0))
     }
     return copy
-  }, [result, sort, allowedNames])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, sort, allowedNames, productsByName, minPrice, maxPrice])
 
   const activeCategory = categories.find((c) => String(c.id) === categoryId)
   const heading = keyword
@@ -151,44 +176,7 @@ export default function GroupBuyListPage() {
       ? `${activeCategory.name} 공동구매`
       : '진행중인 공동구매'
 
-  const handleFormChange = (field) => (e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))
-
-  // 가격 필드는 음수 입력 자체를 막는다 (타이핑/붙여넣기 모두 무시)
-  const handlePriceChange = (field) => (e) => {
-    const value = e.target.value
-    if (value !== '' && Number(value) < 0) return
-    setForm((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const handleFilterSubmit = (e) => {
-    e.preventDefault()
-    setFilterError('')
-
-    const min = form.minPrice === '' ? null : Number(form.minPrice)
-    const max = form.maxPrice === '' ? null : Number(form.maxPrice)
-
-    if ((min !== null && min < 0) || (max !== null && max < 0)) {
-      setFilterError('가격은 0원 이상으로 입력해주세요.')
-      return
-    }
-    if (min !== null && max !== null && min > max) {
-      setFilterError('최소 가격이 최대 가격보다 클 수 없습니다.')
-      return
-    }
-
-    const next = {}
-    if (form.keyword) next.keyword = form.keyword
-    if (form.categoryId) next.categoryId = form.categoryId
-    if (form.minPrice !== '') next.minPrice = form.minPrice
-    if (form.maxPrice !== '') next.maxPrice = form.maxPrice
-    setSearchParams(next)
-  }
-
-  const handleResetFilter = () => {
-    setFilterError('')
-    setForm(emptyForm)
-    setSearchParams({})
-  }
+  const handleResetFilter = () => setSearchParams({})
 
   return (
     <Box sx={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
@@ -226,24 +214,18 @@ export default function GroupBuyListPage() {
           정렬
         </Typography>
         <Stack spacing={1} sx={{ mt: 1 }}>
-          <Typography
-            variant="body2"
-            fontWeight={sort === 'deadline' ? 700 : 400}
-            color={sort === 'deadline' ? 'primary.main' : 'text.secondary'}
-            onClick={() => setSort('deadline')}
-            sx={{ cursor: 'pointer' }}
-          >
-            마감임박순
-          </Typography>
-          <Typography
-            variant="body2"
-            fontWeight={sort === 'popular' ? 700 : 400}
-            color={sort === 'popular' ? 'primary.main' : 'text.secondary'}
-            onClick={() => setSort('popular')}
-            sx={{ cursor: 'pointer' }}
-          >
-            인기순
-          </Typography>
+          {SORT_OPTIONS.map((opt) => (
+            <Typography
+              key={opt.value}
+              variant="body2"
+              fontWeight={sort === opt.value ? 700 : 400}
+              color={sort === opt.value ? 'primary.main' : 'text.secondary'}
+              onClick={() => setSort(opt.value)}
+              sx={{ cursor: 'pointer' }}
+            >
+              {opt.label}
+            </Typography>
+          ))}
         </Stack>
       </Box>
 
@@ -252,82 +234,12 @@ export default function GroupBuyListPage() {
           <Typography variant="h5" fontWeight={800}>
             {heading}
           </Typography>
-          <Button
-            size="small"
-            startIcon={<TuneIcon fontSize="small" />}
-            onClick={() => setFilterOpen((v) => !v)}
-            sx={{ color: hasFilter ? 'primary.main' : 'text.secondary', whiteSpace: 'nowrap' }}
-          >
-            상세검색{hasFilter && ' · 적용중'}
-          </Button>
+          {hasFilter && (
+            <Button size="small" onClick={handleResetFilter} sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+              필터 초기화
+            </Button>
+          )}
         </Stack>
-
-        <Collapse in={filterOpen}>
-          <Paper component="form" onSubmit={handleFilterSubmit} sx={{ p: 2, mb: 3 }}>
-            <Stack
-              direction="row"
-              flexWrap="wrap"
-              useFlexGap
-              spacing={2}
-              alignItems="center"
-            >
-              <TextField
-                label="키워드"
-                value={form.keyword}
-                onChange={handleFormChange('keyword')}
-                size="small"
-                sx={{ flex: '1 1 200px' }}
-              />
-              <FormControl size="small" sx={{ width: 160, flexShrink: 0 }}>
-                <InputLabel id="groupbuy-category-filter-label">카테고리</InputLabel>
-                <Select
-                  labelId="groupbuy-category-filter-label"
-                  label="카테고리"
-                  value={form.categoryId}
-                  onChange={handleFormChange('categoryId')}
-                >
-                  <MenuItem value="">전체</MenuItem>
-                  {categories.map((c) => (
-                    <MenuItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                label="최소 가격"
-                type="number"
-                value={form.minPrice}
-                onChange={handlePriceChange('minPrice')}
-                inputProps={{ min: 0 }}
-                size="small"
-                sx={{ width: 160, flexShrink: 0 }}
-              />
-              <TextField
-                label="최대 가격"
-                type="number"
-                value={form.maxPrice}
-                onChange={handlePriceChange('maxPrice')}
-                inputProps={{ min: 0 }}
-                size="small"
-                sx={{ width: 160, flexShrink: 0 }}
-              />
-              <Button type="submit" variant="contained" sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-                검색
-              </Button>
-              {hasFilter && (
-                <Button onClick={handleResetFilter} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  초기화
-                </Button>
-              )}
-            </Stack>
-            {filterError && (
-              <Alert severity="warning" sx={{ mt: 2 }}>
-                {filterError}
-              </Alert>
-            )}
-          </Paper>
-        </Collapse>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -335,7 +247,7 @@ export default function GroupBuyListPage() {
           </Alert>
         )}
 
-        {loading || (hasFilter && allowedNames === null) ? (
+        {loading || namesLoading ? (
           <LoadingScreen />
         ) : sorted.length === 0 ? (
           <Typography color="text.secondary">
