@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -22,7 +22,6 @@ import LoadingScreen from '../components/LoadingScreen.jsx'
 
 export default function ProductDetailPage() {
   const { productId } = useParams()
-  const navigate = useNavigate()
   const { user, isSeller } = useAuth()
 
   const [product, setProduct] = useState(null)
@@ -71,13 +70,15 @@ export default function ProductDetailPage() {
   const status = statusMeta(PRODUCT_STATUS, product.status)
   const isOwner = isSeller && user?.id === product.sellerId
 
-  const handleDelete = async () => {
+  const handleSuspend = async () => {
     setDeleting(true)
     try {
+      // 백엔드 DELETE /products/{id}는 실제 삭제가 아니라 판매중지(soft delete) 처리다.
       await deleteProduct(productId)
-      navigate('/products')
+      setDeleteOpen(false)
+      await fetchProduct()
     } catch (err) {
-      setError(getErrorMessage(err, '상품 삭제에 실패했습니다.'))
+      setError(getErrorMessage(err, '판매중지 처리에 실패했습니다.'))
       setDeleteOpen(false)
     } finally {
       setDeleting(false)
@@ -180,28 +181,32 @@ export default function ProductDetailPage() {
               <Button component={Link} to={`/products/${productId}/edit`} variant="outlined">
                 수정
               </Button>
-              {product.status === 'SUSPENDED' && (
+              {product.status === 'SUSPENDED' ? (
                 <Button variant="outlined" onClick={handleResume} disabled={resuming}>
                   판매 재개
                 </Button>
+              ) : (
+                <Button color="error" variant="outlined" onClick={() => setDeleteOpen(true)}>
+                  판매중지
+                </Button>
               )}
-              <Button color="error" variant="outlined" onClick={() => setDeleteOpen(true)}>
-                삭제
-              </Button>
             </Stack>
           </>
         )}
       </Paper>
 
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
-        <DialogTitle>상품 삭제</DialogTitle>
+        <DialogTitle>판매중지</DialogTitle>
         <DialogContent>
-          <DialogContentText>정말로 이 상품을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</DialogContentText>
+          <DialogContentText>
+            이 상품 판매를 중지하시겠습니까? 판매중지 상태에서는 새로 노출/검색되지 않으며,
+            나중에 "판매 재개" 버튼으로 다시 판매를 시작할 수 있습니다.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteOpen(false)}>취소</Button>
-          <Button color="error" onClick={handleDelete} disabled={deleting}>
-            삭제
+          <Button color="error" onClick={handleSuspend} disabled={deleting}>
+            판매중지
           </Button>
         </DialogActions>
       </Dialog>
