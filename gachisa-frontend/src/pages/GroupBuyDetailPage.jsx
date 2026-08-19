@@ -6,12 +6,9 @@ import Typography from '@mui/material/Typography'
 import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import Button from '@mui/material/Button'
-import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
 import Alert from '@mui/material/Alert'
 import Divider from '@mui/material/Divider'
-import RemoveIcon from '@mui/icons-material/Remove'
-import AddIcon from '@mui/icons-material/Add'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { getGroupBuyDetail, cancelGroupBuy } from '../api/groupBuyApi'
@@ -41,7 +38,6 @@ export default function GroupBuyDetailPage() {
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [quantity, setQuantity] = useState(1)
   const [cancelSubmitting, setCancelSubmitting] = useState(false)
   const [myParticipation, setMyParticipation] = useState(null)
 
@@ -102,7 +98,7 @@ export default function GroupBuyDetailPage() {
 
   const handleParticipateClick = () => {
     navigate(`/group-buys/${groupBuyId}/checkout`, {
-      state: { quantity, productName: groupBuy?.productName },
+      state: { productName: groupBuy?.productName },
     })
   }
 
@@ -233,30 +229,17 @@ export default function GroupBuyDetailPage() {
             )}
 
             {canParticipate && (
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 3 }}>
-                {!myParticipation && !isFull && (
-                  <Stack direction="row" alignItems="center" sx={{ border: '1px solid #E5E7EB', borderRadius: 2 }}>
-                    <IconButton size="small" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
-                      <RemoveIcon fontSize="small" />
-                    </IconButton>
-                    <Typography sx={{ px: 1.5, minWidth: 24, textAlign: 'center' }}>{quantity}</Typography>
-                    <IconButton size="small" onClick={() => setQuantity((q) => q + 1)}>
-                      <AddIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                )}
-                <Button
-                  variant="contained"
-                  color={myParticipation || isFull ? 'inherit' : 'secondary'}
-                  size="large"
-                  fullWidth
-                  disabled={!!myParticipation || isFull}
-                  onClick={handleParticipateClick}
-                  sx={{ py: 1.4 }}
-                >
-                  {myParticipation ? '참여완료' : isFull ? '모집 완료' : '참여 신청하기'}
-                </Button>
-              </Stack>
+              <Button
+                variant="contained"
+                color={myParticipation || isFull ? 'inherit' : 'secondary'}
+                size="large"
+                fullWidth
+                disabled={!!myParticipation || isFull}
+                onClick={handleParticipateClick}
+                sx={{ mt: 3, py: 1.4 }}
+              >
+                {myParticipation ? '참여완료' : isFull ? '모집 완료' : '참여 신청하기'}
+              </Button>
             )}
 
             {needsLoginToParticipate && (
