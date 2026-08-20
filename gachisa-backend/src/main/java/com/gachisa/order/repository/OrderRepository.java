@@ -14,7 +14,35 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByParticipationId(Long participationId);
 
-    Page<Order> findAllByBuyerId(Long buyerId, Pageable pageable);
+    Optional<Order> findByPaymentId(Long paymentId);
+
+    Page<Order> findAllByBuyerIdAndDeliveryStatusNot(
+            Long buyerId, com.gachisa.order.entity.DeliveryStatus deliveryStatus, Pageable pageable);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update Order o
+               set o.deliveryStatus = com.gachisa.order.entity.DeliveryStatus.PREPARING,
+                   o.preparationStartedAt = :startedAt,
+                   o.updatedAt = :startedAt
+             where o.groupBuyId = :groupBuyId
+               and o.deliveryStatus = com.gachisa.order.entity.DeliveryStatus.WAITING_FOR_GROUP_BUY
+            """)
+    int startPreparationForGroupBuy(@Param("groupBuyId") Long groupBuyId,
+                                    @Param("startedAt") LocalDateTime startedAt);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            update Order o
+               set o.deliveryStatus = com.gachisa.order.entity.DeliveryStatus.SHIPPING,
+                   o.shippingStartedAt = :startedAt,
+                   o.updatedAt = :startedAt
+             where o.deliveryStatus = com.gachisa.order.entity.DeliveryStatus.PREPARING
+               and o.address is not null
+               and o.preparationStartedAt <= :preparationDeadline
+            """)
+    int startShippingDue(@Param("preparationDeadline") LocalDateTime preparationDeadline,
+                         @Param("startedAt") LocalDateTime startedAt);
 
     @Modifying(clearAutomatically = true)
     @Query("""

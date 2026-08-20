@@ -17,6 +17,7 @@ import com.gachisa.payment.entity.RefundStatus;
 import com.gachisa.payment.dto.RefundResponse;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.participation.service.ParticipationService;
+import com.gachisa.order.service.OrderService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,12 +40,15 @@ class GroupBuyResultProcessingServiceTest {
     @Mock
     private ParticipationService participationService;
 
+    @Mock
+    private OrderService orderService;
+
     private GroupBuyResultProcessingService processingService;
 
     @BeforeEach
     void setUp() {
         processingService = new GroupBuyResultProcessingService(
-                paymentRepository, refundService, participationService);
+                paymentRepository, refundService, participationService, orderService);
     }
 
     @Test
@@ -91,6 +95,7 @@ class GroupBuyResultProcessingServiceTest {
         GroupBuyResultProcessingResponse response = processingService.process(command);
 
         assertThat(response.refundedCount()).isZero();
+        verify(orderService).startPreparationForGroupBuy(10L);
         verify(refundService, never()).requestRefund(1L, REFUND_REASON);
     }
 

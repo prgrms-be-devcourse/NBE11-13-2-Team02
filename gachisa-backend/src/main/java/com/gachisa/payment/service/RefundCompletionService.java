@@ -3,6 +3,7 @@ package com.gachisa.payment.service;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.util.TimeProvider;
+import com.gachisa.order.service.OrderService;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.payment.client.PgClient.PgCancellationResult;
 import com.gachisa.payment.dto.RefundResponse;
@@ -31,6 +32,7 @@ public class RefundCompletionService {
     private final RefundRepository refundRepository;
     private final ParticipationService participationService;
     private final TimeProvider timeProvider;
+    private final OrderService orderService;
 
     @Transactional
     public RefundResponse complete(Long refundId, PgCancellationResult result) {
@@ -48,7 +50,8 @@ public class RefundCompletionService {
         LocalDateTime now = timeProvider.now();
         payment.refund(now);
         refund.complete(result.cancellationTransactionKey(), now);
-        participationService.refundPayment(payment.getParticipationId());
+        synchronizeParticipationRefund(payment.getParticipationId());
+        orderService.reflectRefund(payment.getId());
         return RefundResponse.from(refund);
     }
 
@@ -70,7 +73,8 @@ public class RefundCompletionService {
         if (payment.getStatus() != PaymentStatus.REFUNDED) {
             payment.refund(now);
         }
-        participationService.refundPayment(payment.getParticipationId());
+        synchronizeParticipationRefund(payment.getParticipationId());
+        orderService.reflectRefund(payment.getId());
     }
 
     private Refund createRefund(Payment payment, String reason, LocalDateTime now) {
@@ -87,6 +91,13 @@ public class RefundCompletionService {
                 .requestedAt(now)
                 .updatedAt(now)
                 .build());
+    }
+
+    private void synchronizeParticipationRefund(Long participationId) {
+        if (participationService.getPaymentInfo(participationId).payable()) {
+            participationService.confirmPayment(participationId);
+        }
+        participationService.refundPayment(participationId);
     }
 
     private Refund getRefund(Long refundId) {

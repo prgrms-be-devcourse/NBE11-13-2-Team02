@@ -3,18 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Paper from '@mui/material/Paper'
-import Table from '@mui/material/Table'
-import TableHead from '@mui/material/TableHead'
-import TableBody from '@mui/material/TableBody'
-import TableRow from '@mui/material/TableRow'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
+import Stack from '@mui/material/Stack'
 import Chip from '@mui/material/Chip'
 import Pagination from '@mui/material/Pagination'
 import Alert from '@mui/material/Alert'
 import { getMyOrders } from '../api/orderApi'
 import { getErrorMessage } from '../api/errorMessage'
-import { DELIVERY_STATUS, statusMeta, formatDateTime } from '../utils/statusMeta'
+import { DELIVERY_STATUS, statusMeta, formatDateTime, formatPrice } from '../utils/statusMeta'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
 const PAGE_SIZE = 20
@@ -65,40 +60,33 @@ export default function MyOrdersPage() {
 
       {!error && result && result.content.length > 0 && (
         <>
-          <TableContainer component={Paper} elevation={1}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>주문 ID</TableCell>
-                  <TableCell>참여 ID</TableCell>
-                  <TableCell>결제 ID</TableCell>
-                  <TableCell>배송 상태</TableCell>
-                  <TableCell>주문일시</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {result.content.map((order) => {
+          <Stack spacing={2}>
+            {result.content.map((order) => {
                   const meta = statusMeta(DELIVERY_STATUS, order.deliveryStatus)
                   return (
-                    <TableRow
+                    <Paper
                       key={order.orderId}
-                      hover
                       onClick={() => navigate(`/my/orders/${order.orderId}`)}
-                      sx={{ cursor: 'pointer' }}
+                      sx={{ p: 2.5, cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
                     >
-                      <TableCell>{order.orderId}</TableCell>
-                      <TableCell>{order.participationId}</TableCell>
-                      <TableCell>{order.paymentId}</TableCell>
-                      <TableCell>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        {order.productImageUrl ? <Box component="img" src={order.productImageUrl} alt={order.productName}
+                          sx={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 2 }} />
+                          : <Box sx={{ width: 80, height: 80, bgcolor: 'grey.100', borderRadius: 2,
+                            display: 'grid', placeItems: 'center' }}>이미지 없음</Box>}
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography fontWeight={800}>{order.productName}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            수량 {order.quantity}개 · {formatPrice(order.amount)}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">{formatDateTime(order.createdAt)}</Typography>
+                        </Box>
                         <Chip size="small" label={meta.label} color={meta.color} />
-                      </TableCell>
-                      <TableCell>{formatDateTime(order.createdAt)}</TableCell>
-                    </TableRow>
+                      </Stack>
+                    </Paper>
                   )
                 })}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          </Stack>
 
           {result.totalPages > 1 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>

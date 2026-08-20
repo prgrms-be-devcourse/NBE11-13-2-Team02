@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import * as userApi from '../api/userApi'
 import { getErrorMessage } from '../api/errorMessage'
 import { formatDateTime } from '../utils/statusMeta'
+import SavedDeliveryAddressManager from '../components/SavedDeliveryAddressManager.jsx'
 
 const ROLE_LABEL = {
   ROLE_BUYER: '구매자',
@@ -138,6 +139,7 @@ export default function MyPage() {
           </Stack>
         </Box>
       </Paper>
+      <SavedDeliveryAddressManager />
     </Box>
   )
 }

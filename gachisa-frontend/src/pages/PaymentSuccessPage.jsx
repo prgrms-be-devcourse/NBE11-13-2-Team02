@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography'
 import Stack from '@mui/material/Stack'
 import CircularProgress from '@mui/material/CircularProgress'
 import { confirmPayment, getPayment } from '../api/paymentApi.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
 const responseData = (response) => response.data?.data ?? response.data
@@ -25,9 +26,19 @@ async function waitForFinalPayment(paymentId) {
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { initializing, isAuthenticated } = useAuth()
   const [message, setMessage] = useState('결제를 승인하고 있습니다.')
 
   useEffect(() => {
+    if (initializing) {
+      setMessage('로그인 정보를 확인하고 있습니다.')
+      return
+    }
+    if (!isAuthenticated) {
+      setMessage('로그인 정보를 확인할 수 없습니다. 다시 로그인해주세요.')
+      return
+    }
+
     const paymentKey = searchParams.get('paymentKey')
     const pgOrderId = searchParams.get('orderId')
     const amount = Number(searchParams.get('amount'))
@@ -67,7 +78,7 @@ export default function PaymentSuccessPage() {
       .catch((error) => {
         setMessage(error.response?.data?.message ?? '결제 승인에 실패했습니다.')
       })
-  }, [navigate, searchParams])
+  }, [initializing, isAuthenticated, navigate, searchParams])
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', px: 2 }}>

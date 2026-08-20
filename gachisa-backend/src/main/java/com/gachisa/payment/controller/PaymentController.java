@@ -6,6 +6,7 @@ import com.gachisa.payment.dto.PaymentConfirmRequest;
 import com.gachisa.payment.dto.PaymentRequest;
 import com.gachisa.payment.dto.PaymentResponse;
 import com.gachisa.payment.service.PaymentService;
+import com.gachisa.payment.service.PaymentCancellationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentCancellationService paymentCancellationService;
+
+    @PostMapping("/participations/{participationId}/cancel")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelParticipation(
+            @PathVariable Long participationId,
+            @AuthenticationPrincipal(expression = "userId") Long userId) {
+        paymentCancellationService.cancel(participationId, requireUserId(userId));
+    }
 
     @PostMapping("/participations/{participationId}/payment")
     @ResponseStatus(HttpStatus.CREATED)

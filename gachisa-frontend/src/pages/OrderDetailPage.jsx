@@ -13,10 +13,10 @@ import Step from '@mui/material/Step'
 import StepLabel from '@mui/material/StepLabel'
 import { getMyOrder } from '../api/orderApi'
 import { getErrorMessage } from '../api/errorMessage'
-import { DELIVERY_STATUS, statusMeta, formatDateTime } from '../utils/statusMeta'
+import { DELIVERY_STATUS, statusMeta, formatDateTime, formatPrice } from '../utils/statusMeta'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
-const DELIVERY_STEPS = ['PREPARING', 'SHIPPING', 'DELIVERED']
+const DELIVERY_STEPS = ['WAITING_FOR_GROUP_BUY', 'PREPARING', 'SHIPPING', 'DELIVERED']
 
 function InfoRow({ label, value }) {
   return (
@@ -71,6 +71,7 @@ export default function OrderDetailPage() {
 
   const meta = statusMeta(DELIVERY_STATUS, order.deliveryStatus)
   const activeStep = DELIVERY_STEPS.indexOf(order.deliveryStatus)
+  const needsDeliveryAddress = !order.deliveryAddressRegistered
 
   return (
     <Box>
@@ -90,9 +91,16 @@ export default function OrderDetailPage() {
 
       <Paper sx={{ p: 3 }} elevation={1}>
         <Stack spacing={1.5}>
-          <InfoRow label="주문 ID" value={order.orderId} />
-          <InfoRow label="참여 ID" value={order.participationId} />
-          <InfoRow label="결제 ID" value={order.paymentId} />
+          <Stack direction="row" spacing={2} alignItems="center">
+            {order.productImageUrl && <Box component="img" src={order.productImageUrl} alt={order.productName}
+              sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 2 }} />}
+            <Box>
+              <Typography variant="h6" fontWeight={800}>{order.productName}</Typography>
+              <Typography color="text.secondary">수량 {order.quantity}개</Typography>
+              <Typography fontWeight={700}>{formatPrice(order.amount)}</Typography>
+            </Box>
+          </Stack>
+          <Divider />
           <InfoRow label="배송 상태" value={<Chip size="small" label={meta.label} color={meta.color} />} />
           <Divider />
           <InfoRow label="주문일시" value={formatDateTime(order.createdAt)} />
@@ -103,10 +111,10 @@ export default function OrderDetailPage() {
       <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
         <Button
           component={Link}
-          to={order.deliveryStatus === 'PREPARING' ? `/orders/${order.orderId}/delivery-address` : `/orders/${order.orderId}/delivery`}
+          to={needsDeliveryAddress ? `/orders/${order.orderId}/delivery-address` : `/orders/${order.orderId}/delivery`}
           variant="contained"
         >
-          {order.deliveryStatus === 'PREPARING' ? '배송지 입력' : '배송 조회'}
+          {needsDeliveryAddress ? '배송지 입력' : '배송 조회'}
         </Button>
         <Button component={Link} to="/my/orders">
           내 주문 목록으로

@@ -35,6 +35,23 @@ public class Order {
     @Column(nullable = false)
     private Long buyerId;
 
+    @Column(nullable = false)
+    private Long groupBuyId;
+
+    @Column(nullable = false)
+    private Long productId;
+
+    @Column(nullable = false)
+    private String productName;
+
+    private String productImageUrl;
+
+    @Column(nullable = false)
+    private int quantity;
+
+    @Column(nullable = false)
+    private int amount;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DeliveryStatus deliveryStatus;
@@ -59,6 +76,8 @@ public class Order {
 
     private LocalDateTime shippingStartedAt;
 
+    private LocalDateTime preparationStartedAt;
+
     private LocalDateTime deliveredAt;
 
     @Column(nullable = false, updatable = false)
@@ -68,12 +87,19 @@ public class Order {
     private LocalDateTime updatedAt;
 
     @Builder
-    private Order(Long participationId, Long paymentId, Long buyerId,
+    private Order(Long participationId, Long paymentId, Long buyerId, Long groupBuyId,
+                  Long productId, String productName, String productImageUrl, int quantity, int amount,
                   DeliveryStatus deliveryStatus, LocalDateTime createdAt,
                   LocalDateTime updatedAt) {
         this.participationId = participationId;
         this.paymentId = paymentId;
         this.buyerId = buyerId;
+        this.groupBuyId = groupBuyId;
+        this.productId = productId;
+        this.productName = productName;
+        this.productImageUrl = productImageUrl;
+        this.quantity = quantity;
+        this.amount = amount;
         this.deliveryStatus = deliveryStatus;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -93,7 +119,8 @@ public class Order {
     public void registerDeliveryAddress(String recipientName, String recipientPhone,
                                         String zipCode, String address, String addressDetail,
                                         String deliveryRequest, LocalDateTime registeredAt) {
-        if (deliveryStatus != DeliveryStatus.PREPARING || this.address != null) {
+        if ((deliveryStatus != DeliveryStatus.WAITING_FOR_GROUP_BUY
+                && deliveryStatus != DeliveryStatus.PREPARING) || this.address != null) {
             throw new CustomException(ErrorCode.DELIVERY_ADDRESS_ALREADY_REGISTERED);
         }
 
@@ -103,13 +130,18 @@ public class Order {
         this.address = address;
         this.addressDetail = addressDetail;
         this.deliveryRequest = deliveryRequest;
-        this.deliveryStatus = DeliveryStatus.SHIPPING;
-        this.shippingStartedAt = registeredAt;
         this.updatedAt = registeredAt;
     }
 
     public void changeDeliveryStatusByAdmin(DeliveryStatus newStatus, LocalDateTime changedAt) {
-        if (newStatus != DeliveryStatus.PREPARING && address == null) {
+        if (deliveryStatus == DeliveryStatus.WAITING_FOR_GROUP_BUY
+                && newStatus != DeliveryStatus.CANCELLED) {
+            throw new CustomException(ErrorCode.INVALID_DELIVERY_STATUS_TRANSITION);
+        }
+        if ((newStatus == DeliveryStatus.SHIPPING
+                || newStatus == DeliveryStatus.DELIVERED
+                || newStatus == DeliveryStatus.RETURNING
+                || newStatus == DeliveryStatus.RETURNED) && address == null) {
             throw new CustomException(ErrorCode.DELIVERY_ADDRESS_REQUIRED);
         }
 
@@ -125,5 +157,21 @@ public class Order {
             shippingStartedAt = changedAt;
         }
         deliveredAt = newStatus == DeliveryStatus.DELIVERED ? changedAt : null;
+    }
+
+    public void reflectRefund(LocalDateTime refundedAt) {
+        if (deliveryStatus == DeliveryStatus.CANCELLED
+                || deliveryStatus == DeliveryStatus.RETURNING
+                || deliveryStatus == DeliveryStatus.RETURNED) {
+            return;
+        }
+
+        if (deliveryStatus == DeliveryStatus.WAITING_FOR_GROUP_BUY
+                || deliveryStatus == DeliveryStatus.PREPARING) {
+            deliveryStatus = DeliveryStatus.CANCELLED;
+        } else {
+            deliveryStatus = DeliveryStatus.RETURNING;
+        }
+        updatedAt = refundedAt;
     }
 }
