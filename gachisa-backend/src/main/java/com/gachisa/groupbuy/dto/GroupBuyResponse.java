@@ -10,7 +10,10 @@ import java.time.LocalDateTime;
 public class GroupBuyResponse {
 
     private final Long groupBuyId;
+    private final Long productId;
     private final String productName;
+    private final Long categoryId;
+    private final Integer basePrice;
     private final BigDecimal discountRate;
     private final Integer currentCount;
     private final Integer targetCount;
@@ -19,7 +22,10 @@ public class GroupBuyResponse {
 
     private GroupBuyResponse(GroupBuy g) {
         this.groupBuyId = g.getId();
+        this.productId = g.getProduct().getId();
         this.productName = g.getProduct().getName();
+        this.categoryId = g.getProduct().getCategory().getId();
+        this.basePrice = g.getProduct().getBasePrice();
         this.discountRate = g.getDiscountRate();
         this.currentCount = g.getCurrentCount();
         this.targetCount = g.getTargetCount();

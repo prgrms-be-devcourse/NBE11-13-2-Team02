@@ -10,11 +10,17 @@ import com.gachisa.groupbuy.dto.GroupBuyResponse;
 import com.gachisa.groupbuy.entity.GroupBuy;
 import com.gachisa.groupbuy.entity.GroupBuyStatus;
 import com.gachisa.groupbuy.repository.GroupBuyRepository;
+import com.gachisa.groupbuy.repository.GroupBuySpecification;
 import com.gachisa.product.entity.Product;
+import com.gachisa.product.entity.ProductOption;
+import com.gachisa.product.repository.ProductOptionRepository;
 import com.gachisa.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,42 +33,64 @@ public class GroupBuyService {
 
     private final GroupBuyRepository groupBuyRepository;
     private final ProductRepository productRepository;
+    private final ProductOptionRepository productOptionRepository;
 
     /** GB-01 */
     @Transactional
     public GroupBuyResponse createGroupBuy(Long sellerId, GroupBuyCreateRequest request) {
         Product product = productRepository.findById(request.getProductId())
-                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+            .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+        ProductOption option = productOptionRepository.findById(request.getProductOptionId())
+            .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_OPTION_NOT_FOUND));
 
         GroupBuy groupBuy = GroupBuy.builder()
-                .product(product)
-                .targetCount(request.getTargetCount())
-                .discountRate(request.getDiscountRate())
-                .openAt(request.getOpenAt())
-                .deadline(request.getDeadline())
-                .sellerId(sellerId)
-                .build();
+            .product(product)
+            .productOption(option)
+            .targetCount(request.getTargetCount())
+            .discountRate(request.getDiscountRate())
+            .openAt(request.getOpenAt())
+            .deadline(request.getDeadline())
+            .sellerId(sellerId)
+            .build();
 
         groupBuyRepository.save(groupBuy);
         return GroupBuyResponse.from(groupBuy);
     }
 
-    /** GB-02 */
+    /** GB-02 - 검색/필터/정렬 지원 */
     @Transactional(readOnly = true)
-    public Page<GroupBuyResponse> getGroupBuyList(GroupBuyStatus status, Pageable pageable) {
-        GroupBuyStatus target = (status != null) ? status : GroupBuyStatus.RECRUITING;
-        return groupBuyRepository.findByStatus(target, pageable)
-                .map(GroupBuyResponse::from);
+    public Page<GroupBuyResponse> getGroupBuyList(GroupBuyStatus status, String keyword, Long categoryId,
+                                                  Integer minPrice, Integer maxPrice, String sort,
+                                                  Pageable pageable) {
+        GroupBuyStatus targetStatus = (status != null) ? status : GroupBuyStatus.RECRUITING;
+
+        Specification<GroupBuy> spec =
+            GroupBuySpecification.combine(targetStatus, keyword, categoryId, minPrice, maxPrice);
+
+        Pageable sortedPageable = applySort(pageable, sort);
+
+        return groupBuyRepository.findAll(spec, sortedPageable)
+            .map(GroupBuyResponse::from);
+    }
+
+    private Pageable applySort(Pageable pageable, String sort) {
+        Sort sortOrder = switch (sort == null ? "deadline_asc" : sort) {
+            case "popular" -> Sort.by(Sort.Direction.DESC, "currentCount");
+            case "price_asc" -> Sort.by(Sort.Direction.ASC, "product.basePrice");
+            case "price_desc" -> Sort.by(Sort.Direction.DESC, "product.basePrice");
+            default -> Sort.by(Sort.Direction.ASC, "deadline");
+        };
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortOrder);
     }
 
     /** GB-03 */
     @Transactional(readOnly = true)
     public GroupBuyDetailResponse getGroupBuyDetail(Long groupBuyId) {
         GroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
-                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
+            .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
 
         long remainingSeconds = Math.max(0,
-                Duration.between(LocalDateTime.now(), groupBuy.getDeadline()).getSeconds());
+            Duration.between(LocalDateTime.now(), groupBuy.getDeadline()).getSeconds());
 
         return GroupBuyDetailResponse.of(groupBuy, remainingSeconds);
     }
@@ -71,7 +99,7 @@ public class GroupBuyService {
     @Transactional
     public GroupBuyResponse cancelGroupBuy(Long sellerId, Long groupBuyId) {
         GroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
-                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
+            .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
 
         if (!groupBuy.isOwnedBy(sellerId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
@@ -89,7 +117,7 @@ public class GroupBuyService {
     @Transactional
     public GroupBuy reserveSlots(Long groupBuyId, int quantity) {
         GroupBuy groupBuy = groupBuyRepository.findByIdForUpdate(groupBuyId)
-                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
+            .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
         groupBuy.reserve(quantity);
         return groupBuy;
     }
@@ -98,7 +126,7 @@ public class GroupBuyService {
     @Transactional
     public void releaseSlots(Long groupBuyId, int quantity) {
         GroupBuy groupBuy = groupBuyRepository.findByIdForUpdate(groupBuyId)
-                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
+            .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
         groupBuy.release(quantity);
     }
 
@@ -106,16 +134,16 @@ public class GroupBuyService {
     @Transactional(readOnly = true)
     public GroupBuy getGroupBuyEntityOrThrow(Long groupBuyId) {
         return groupBuyRepository.findById(groupBuyId)
-                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
+            .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)
     public GroupBuyPaymentInfo getPaymentInfo(Long groupBuyId) {
         GroupBuy groupBuy = getGroupBuyEntityOrThrow(groupBuyId);
         return new GroupBuyPaymentInfo(
-                groupBuy.getId(),
-                groupBuy.getProduct().getId(),
-                groupBuy.getDiscountRate()
+            groupBuy.getId(),
+            groupBuy.getProduct().getId(),
+            groupBuy.getDiscountRate()
         );
     }
 
@@ -123,12 +151,12 @@ public class GroupBuyService {
     public GroupBuyQueueInfo getQueueInfo(Long groupBuyId) {
         GroupBuy groupBuy = getGroupBuyEntityOrThrow(groupBuyId);
         return new GroupBuyQueueInfo(
-                groupBuy.getId(),
-                groupBuy.getTargetCount(),
-                groupBuy.getCurrentCount(),
-                groupBuy.getOpenAt(),
-                groupBuy.getDeadline(),
-                groupBuy.getStatus()
+            groupBuy.getId(),
+            groupBuy.getTargetCount(),
+            groupBuy.getCurrentCount(),
+            groupBuy.getOpenAt(),
+            groupBuy.getDeadline(),
+            groupBuy.getStatus()
         );
     }
 }
