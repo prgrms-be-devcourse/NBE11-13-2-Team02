@@ -10,11 +10,15 @@ import com.gachisa.groupbuy.dto.GroupBuyResponse;
 import com.gachisa.groupbuy.entity.GroupBuy;
 import com.gachisa.groupbuy.entity.GroupBuyStatus;
 import com.gachisa.groupbuy.repository.GroupBuyRepository;
+import com.gachisa.groupbuy.repository.GroupBuySpecification;
 import com.gachisa.product.entity.Product;
 import com.gachisa.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,10 +53,25 @@ public class GroupBuyService {
 
     /** GB-02 */
     @Transactional(readOnly = true)
-    public Page<GroupBuyResponse> getGroupBuyList(GroupBuyStatus status, Pageable pageable) {
-        GroupBuyStatus target = (status != null) ? status : GroupBuyStatus.RECRUITING;
-        return groupBuyRepository.findByStatus(target, pageable)
+    public Page<GroupBuyResponse> getGroupBuyList(GroupBuyStatus status, String keyword, Long categoryId,
+                                                  Integer minPrice, Integer maxPrice, String sort,
+                                                  Pageable pageable) {
+        GroupBuyStatus targetStatus = (status != null) ? status : GroupBuyStatus.RECRUITING;
+        Specification<GroupBuy> spec =
+                GroupBuySpecification.combine(targetStatus, keyword, categoryId, minPrice, maxPrice);
+
+        return groupBuyRepository.findAll(spec, applySort(pageable, sort))
                 .map(GroupBuyResponse::from);
+    }
+
+    private Pageable applySort(Pageable pageable, String sort) {
+        Sort sortOrder = switch (sort == null ? "deadline_asc" : sort) {
+            case "popular" -> Sort.by(Sort.Direction.DESC, "currentCount");
+            case "price_asc" -> Sort.by(Sort.Direction.ASC, "product.basePrice");
+            case "price_desc" -> Sort.by(Sort.Direction.DESC, "product.basePrice");
+            default -> Sort.by(Sort.Direction.ASC, "deadline");
+        };
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sortOrder);
     }
 
     /** GB-03 */
