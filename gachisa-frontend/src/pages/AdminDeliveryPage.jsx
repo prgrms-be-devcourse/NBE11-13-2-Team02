@@ -56,6 +56,9 @@ export default function AdminDeliveryPage() {
             <MenuItem value="PREPARING">배송 준비</MenuItem>
             <MenuItem value="SHIPPING">배송 중</MenuItem>
             <MenuItem value="DELIVERED">배송 완료</MenuItem>
+            <MenuItem value="CANCELLED">주문 취소</MenuItem>
+            <MenuItem value="RETURNING">반품 중</MenuItem>
+            <MenuItem value="RETURNED">반품 완료</MenuItem>
           </TextField>
           <Button type="submit" variant="contained" size="large" disabled={submitting}>
             상태 변경

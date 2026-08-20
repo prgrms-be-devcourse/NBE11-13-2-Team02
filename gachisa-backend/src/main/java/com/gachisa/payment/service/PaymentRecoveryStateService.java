@@ -122,7 +122,8 @@ public class PaymentRecoveryStateService {
         ParticipationPaymentInfo participation =
                 participationService.getPaymentInfo(payment.getParticipationId());
         OrderResponse order = orderService.createOrderIfAbsent(new OrderCreateCommand(
-                payment.getParticipationId(), payment.getId(), participation.userId()));
+                payment.getParticipationId(), payment.getId(), participation.userId(),
+                participation.groupBuyId(), participation.quantity(), payment.getAmount()));
         return order.orderId();
     }
 
