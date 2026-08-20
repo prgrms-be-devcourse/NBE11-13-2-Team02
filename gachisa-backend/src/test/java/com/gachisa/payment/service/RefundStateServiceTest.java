@@ -5,7 +5,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.gachisa.global.util.TimeProvider;
+import com.gachisa.order.service.OrderService;
 import com.gachisa.participation.service.ParticipationService;
+import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.payment.client.PgClient.PgCancellationResult;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.entity.PaymentAttempt;
@@ -39,6 +41,7 @@ class RefundCompletionServiceTest {
     @Mock RefundRepository refundRepository;
     @Mock ParticipationService participationService;
     @Mock TimeProvider timeProvider;
+    @Mock OrderService orderService;
     private RefundCompletionService refundCompletionService;
 
     @BeforeEach
@@ -48,7 +51,8 @@ class RefundCompletionServiceTest {
                 attemptRepository,
                 refundRepository,
                 participationService,
-                timeProvider
+                timeProvider,
+                orderService
         );
     }
 
@@ -62,6 +66,8 @@ class RefundCompletionServiceTest {
         given(attemptRepository.findFirstByPaymentIdAndStatusOrderByCreatedAtDesc(
                 PAYMENT_ID, PaymentAttemptStatus.PAID)).willReturn(Optional.of(attempt));
         given(timeProvider.now()).willReturn(NOW);
+        given(participationService.getPaymentInfo(PARTICIPATION_ID))
+                .willReturn(new ParticipationPaymentInfo(PARTICIPATION_ID, 1L, 1L, 1, false));
 
         refundCompletionService.complete(REFUND_ID, new PgCancellationResult(
                 "payment-key", "gachisa_order", "cancel-transaction", 12_600));
@@ -69,6 +75,7 @@ class RefundCompletionServiceTest {
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
         assertThat(refund.getStatus()).isEqualTo(RefundStatus.REFUNDED);
         verify(participationService).refundPayment(PARTICIPATION_ID);
+        verify(orderService).reflectRefund(PAYMENT_ID);
     }
 
     private Payment paidPayment() {
