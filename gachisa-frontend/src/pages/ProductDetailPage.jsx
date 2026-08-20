@@ -16,7 +16,7 @@ import DialogActions from '@mui/material/DialogActions'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getErrorMessage } from '../api/errorMessage'
 import { getProduct, deleteProduct, resumeProduct } from '../api/productApi'
-import { fetchActiveGroupBuyIdsByProductName } from '../utils/groupBuyLookup'
+import { fetchActiveGroupBuyIdsByProductId } from '../utils/groupBuyLookup'
 import { PRODUCT_STATUS, statusMeta, formatPrice, formatDateTime } from '../utils/statusMeta'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
@@ -51,11 +51,11 @@ export default function ProductDetailPage() {
   }, [fetchProduct])
 
   useEffect(() => {
-    if (!product?.name) return
-    fetchActiveGroupBuyIdsByProductName()
-      .then((map) => setActiveGroupBuyId(map[product.name] ?? null))
+    if (!product?.id) return
+    fetchActiveGroupBuyIdsByProductId()
+      .then((map) => setActiveGroupBuyId(map[product.id] ?? null))
       .catch(() => setActiveGroupBuyId(null))
-  }, [product?.name])
+  }, [product?.id])
 
   if (loading) return <LoadingScreen />
   if (error) {

@@ -23,7 +23,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { getErrorMessage } from '../api/errorMessage'
 import { getProducts, searchProducts } from '../api/productApi'
 import { getCategories } from '../api/categoryApi'
-import { fetchActiveGroupBuyIdsByProductName } from '../utils/groupBuyLookup'
+import { fetchActiveGroupBuyIdsByProductId } from '../utils/groupBuyLookup'
 import { PRODUCT_STATUS, statusMeta, formatPrice } from '../utils/statusMeta'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 
@@ -46,7 +46,7 @@ export default function ProductListPage() {
   }
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
-  const [groupBuyIdsByProductName, setGroupBuyIdsByProductName] = useState({})
+  const [groupBuyIdsByProductId, setGroupBuyIdsByProductName] = useState({})
   const [filters, setFilters] = useState(initialFilters)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,7 +58,7 @@ export default function ProductListPage() {
     getCategories()
       .then(({ data }) => setCategories(flattenCategories(data)))
       .catch(() => setCategories([]))
-    fetchActiveGroupBuyIdsByProductName()
+    fetchActiveGroupBuyIdsByProductId()
       .then(setGroupBuyIdsByProductName)
       .catch(() => setGroupBuyIdsByProductName({}))
   }, [])
@@ -212,7 +212,7 @@ export default function ProductListPage() {
         <Grid container spacing={2}>
           {products.map((product) => {
             const status = statusMeta(PRODUCT_STATUS, product.status)
-            const groupBuyId = groupBuyIdsByProductName[product.name]
+            const groupBuyId = groupBuyIdsByProductId[product.id]
             const linkTo = groupBuyId ? `/group-buys/${groupBuyId}` : `/products/${product.id}`
             return (
               <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>

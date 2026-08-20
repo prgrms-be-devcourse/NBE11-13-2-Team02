@@ -1,13 +1,4 @@
-// 참고: GroupBuyResponse에는 productId/categoryId/원가/이미지 필드가 없어 카드에 이런 정보를
-// 정확히 표시하거나 카테고리/키워드/가격으로 필터링할 수 없다. 상품명이 겹치지 않는다는 전제로
-// 상품 목록(GET /products, /products/search)을 불러와 이름으로 매칭해 best-effort로 채운다.
-// 또한 필터가 걸리면 백엔드 페이지네이션과 클라이언트 필터링이 어긋나므로, 필터가 있을 때는
-// 큰 사이즈로 한 번에 가져와 클라이언트에서 걸러서 보여준다(페이지네이션 숨김).
-// 가격(최소/최대) 필터는 백엔드 /products/search에 위임하지 않는다 — 그 API는 Product.basePrice(정가)
-// 로만 필터링하는데, 할인율은 Product가 아니라 GroupBuy에 있는 값이라 정가 필터는 사용자가 실제로
-// 낼 할인가와 어긋난다. 그래서 카테고리/키워드만 백엔드에 위임하고, 가격은 아래 getDiscountedPrice로
-// 계산한 할인가 기준으로 클라이언트에서 직접 걸러낸다.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Grid from '@mui/material/Grid'
@@ -23,21 +14,21 @@ import Stack from '@mui/material/Stack'
 import Pagination from '@mui/material/Pagination'
 import Button from '@mui/material/Button'
 import StorefrontIcon from '@mui/icons-material/Storefront'
-import { getGroupBuyList } from '../api/groupBuyApi'
-import { getProducts, searchProducts } from '../api/productApi'
+import { searchGroupBuys } from '../api/groupBuyApi'
 import { getCategories } from '../api/categoryApi'
 import { getErrorMessage } from '../api/errorMessage'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 import { GROUP_BUY_STATUS, formatPrice, statusMeta } from '../utils/statusMeta'
 
 const PAGE_SIZE = 9
-const FILTERED_SIZE = 100
+// 백엔드 GroupBuyService.applySort가 지원하는 값 그대로 사용한다 (그 외 값은 마감임박순으로 처리됨).
+// "마감"은 참여 인원이 다 찼다는 뜻(참여 마감)인지 모집 기간이 끝난다는 뜻(모집 마감)인지 헷갈릴 수 있어서,
+// 카드에 이미 쓰고 있는 "D-N" 표기와 맞춰 "며칠 남았는지" 기준이라는 걸 라벨에서 드러낸다.
 const SORT_OPTIONS = [
-  { value: 'deadline', label: '마감임박순' },
+  { value: 'deadline_asc', label: '마감일 임박순' },
   { value: 'popular', label: '인기순' },
-  { value: 'discount', label: '할인가순' },
-  { value: 'priceLow', label: '낮은 가격순' },
-  { value: 'priceHigh', label: '높은 가격순' },
+  { value: 'price_asc', label: '낮은 가격순' },
+  { value: 'price_desc', label: '높은 가격순' },
 ]
 
 export default function GroupBuyListPage() {
@@ -49,68 +40,37 @@ export default function GroupBuyListPage() {
   const hasFilter = Boolean(categoryId || keyword || minPrice || maxPrice)
 
   const [page, setPage] = useState(0)
+  // 정렬은 URL에 남기지 않는다 - 새로고침하면 다시 기본값(마감임박순)으로 초기화되는 게 의도된 동작이다.
+  const [sort, setSort] = useState('deadline_asc')
   const [result, setResult] = useState({ content: [], totalPages: 0 })
-  const [productsByName, setProductsByName] = useState({})
-  const [allowedNames, setAllowedNames] = useState(null) // null: 카테고리/키워드 필터 없음(전체 허용)
-  const [namesLoading, setNamesLoading] = useState(false)
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [sort, setSort] = useState('deadline') // deadline: 마감임박순, popular: 인기순
 
   useEffect(() => {
     getCategories()
       .then(({ data }) => setCategories(data ?? []))
       .catch(() => setCategories([]))
-    getProducts()
-      .then(({ data }) => {
-        const map = {}
-        ;(data ?? []).forEach((p) => {
-          map[p.name] = p
-        })
-        setProductsByName(map)
-      })
-      .catch(() => {})
   }, [])
-
-  // 카테고리/키워드가 걸리면 검색 결과 상품명 집합을 구해 공동구매 목록을 걸러낸다.
-  // 가격은 여기서 백엔드에 넘기지 않는다 (정가 기준이라 할인가와 어긋남) — sorted에서 직접 필터링한다.
-  useEffect(() => {
-    if (!categoryId && !keyword) {
-      setAllowedNames(null)
-      setNamesLoading(false)
-      return
-    }
-    let cancelled = false
-    setNamesLoading(true)
-    searchProducts({
-      categoryId: categoryId || undefined,
-      keyword: keyword || undefined,
-    })
-      .then(({ data }) => {
-        if (cancelled) return
-        setAllowedNames(new Set((data ?? []).map((p) => p.name)))
-      })
-      .catch(() => {
-        if (!cancelled) setAllowedNames(new Set())
-      })
-      .finally(() => {
-        if (!cancelled) setNamesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [categoryId, keyword])
 
   useEffect(() => {
     setPage(0)
-  }, [categoryId, keyword, minPrice, maxPrice])
+  }, [categoryId, keyword, minPrice, maxPrice, sort])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError('')
-    getGroupBuyList({ status: 'RECRUITING', page: hasFilter ? 0 : page, size: hasFilter ? FILTERED_SIZE : PAGE_SIZE })
+    searchGroupBuys({
+      status: 'RECRUITING',
+      keyword: keyword || undefined,
+      categoryId: categoryId || undefined,
+      minPrice: minPrice === '' ? undefined : Number(minPrice),
+      maxPrice: maxPrice === '' ? undefined : Number(maxPrice),
+      sort,
+      page,
+      size: PAGE_SIZE,
+    })
       .then(({ data }) => {
         if (!cancelled) setResult(data)
       })
@@ -123,51 +83,7 @@ export default function GroupBuyListPage() {
     return () => {
       cancelled = true
     }
-  }, [page, hasFilter])
-
-  // GroupBuyResponse에 가격 필드가 없어서, 카드에 이미 표시 중인 best-effort 할인 적용가
-  // (상품명 매칭 성공한 경우만 계산됨)를 그대로 가격 정렬 기준으로 재사용한다.
-  // 매칭 안 된(가격을 모르는) 항목은 어느 정렬 방향이든 항상 맨 뒤로 보낸다.
-  const getDiscountedPrice = (gb) => {
-    const product = productsByName[gb.productName]
-    if (!product || typeof gb.discountRate !== 'number') return null
-    return Math.round(product.basePrice * (1 - gb.discountRate))
-  }
-
-  const sorted = useMemo(() => {
-    const content = result.content ?? []
-    const byNames = allowedNames ? content.filter((gb) => allowedNames.has(gb.productName)) : content
-    const hasPriceFilter = minPrice !== '' || maxPrice !== ''
-    const filtered = hasPriceFilter
-      ? byNames.filter((gb) => {
-          const price = getDiscountedPrice(gb)
-          if (price == null) return false
-          if (minPrice !== '' && price < Number(minPrice)) return false
-          if (maxPrice !== '' && price > Number(maxPrice)) return false
-          return true
-        })
-      : byNames
-    const copy = [...filtered]
-    if (sort === 'popular') {
-      copy.sort((a, b) => (b.currentCount ?? 0) - (a.currentCount ?? 0))
-    } else if (sort === 'discount') {
-      copy.sort((a, b) => (b.discountRate ?? 0) - (a.discountRate ?? 0))
-    } else if (sort === 'priceLow' || sort === 'priceHigh') {
-      const direction = sort === 'priceLow' ? 1 : -1
-      copy.sort((a, b) => {
-        const priceA = getDiscountedPrice(a)
-        const priceB = getDiscountedPrice(b)
-        if (priceA == null && priceB == null) return 0
-        if (priceA == null) return 1
-        if (priceB == null) return -1
-        return (priceA - priceB) * direction
-      })
-    } else {
-      copy.sort((a, b) => new Date(a.deadline ?? 0) - new Date(b.deadline ?? 0))
-    }
-    return copy
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result, sort, allowedNames, productsByName, minPrice, maxPrice])
+  }, [categoryId, keyword, minPrice, maxPrice, sort, page])
 
   const activeCategory = categories.find((c) => String(c.id) === categoryId)
   const heading = keyword
@@ -177,6 +93,8 @@ export default function GroupBuyListPage() {
       : '진행중인 공동구매'
 
   const handleResetFilter = () => setSearchParams({})
+
+  const content = result.content ?? []
 
   return (
     <Box sx={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
@@ -247,25 +165,20 @@ export default function GroupBuyListPage() {
           </Alert>
         )}
 
-        {loading || namesLoading ? (
+        {loading ? (
           <LoadingScreen />
-        ) : sorted.length === 0 ? (
+        ) : content.length === 0 ? (
           <Typography color="text.secondary">
             {hasFilter ? '조건에 맞는 진행중인 공동구매가 없습니다.' : '진행 중인 공동구매가 없습니다.'}
           </Typography>
         ) : (
           <>
             <Grid container spacing={2.5}>
-              {sorted.map((gb) => {
+              {content.map((gb) => {
                 const meta = statusMeta(GROUP_BUY_STATUS, gb.status)
                 const target = gb.targetCount ?? 0
                 const current = gb.currentCount ?? 0
                 const progress = target > 0 ? Math.min(100, (current / target) * 100) : 0
-                const product = productsByName[gb.productName]
-                const discounted =
-                  product && typeof gb.discountRate === 'number'
-                    ? Math.round(product.basePrice * (1 - gb.discountRate))
-                    : null
 
                 const daysLeft = Math.ceil((new Date(gb.deadline) - Date.now()) / 86400000)
                 const isRecruiting = gb.status === '모집중'
@@ -280,10 +193,10 @@ export default function GroupBuyListPage() {
                     <Card sx={isFull ? { filter: 'grayscale(0.4)', opacity: 0.85 } : undefined}>
                       <CardActionArea component={Link} to={`/group-buys/${gb.groupBuyId}`}>
                         <Box sx={{ position: 'relative', height: 110 }}>
-                          {product?.imageUrl ? (
+                          {gb.imageUrl ? (
                             <CardMedia
                               component="img"
-                              image={product.imageUrl}
+                              image={gb.imageUrl}
                               alt={gb.productName}
                               sx={{ height: 110, objectFit: 'cover' }}
                             />
@@ -315,18 +228,18 @@ export default function GroupBuyListPage() {
                           </Typography>
 
                           <Stack direction="row" spacing={1} alignItems="baseline">
-                            {discounted != null && (
+                            {gb.discountedPrice != null && (
                               <Typography variant="h6" fontWeight={800}>
-                                {formatPrice(discounted)}
+                                {formatPrice(gb.discountedPrice)}
                               </Typography>
                             )}
-                            {product && (
+                            {gb.basePrice != null && (
                               <Typography
                                 variant="body2"
                                 color="text.secondary"
                                 sx={{ textDecoration: 'line-through' }}
                               >
-                                {formatPrice(product.basePrice)}
+                                {formatPrice(gb.basePrice)}
                               </Typography>
                             )}
                             {typeof gb.discountRate === 'number' && (
@@ -363,7 +276,7 @@ export default function GroupBuyListPage() {
               })}
             </Grid>
 
-            {!hasFilter && result.totalPages > 1 && (
+            {result.totalPages > 1 && (
               <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                 <Pagination
                   page={page + 1}
