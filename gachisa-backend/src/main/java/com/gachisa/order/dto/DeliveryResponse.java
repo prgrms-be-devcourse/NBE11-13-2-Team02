@@ -6,6 +6,11 @@ import java.time.LocalDateTime;
 
 public record DeliveryResponse(
         Long orderId,
+        Long productId,
+        String productName,
+        String productImageUrl,
+        int quantity,
+        int amount,
         DeliveryStatus deliveryStatus,
         String recipientName,
         String recipientPhone,
@@ -15,6 +20,7 @@ public record DeliveryResponse(
         String deliveryRequest,
         String carrier,
         String trackingNumber,
+        LocalDateTime preparationStartedAt,
         LocalDateTime shippingStartedAt,
         LocalDateTime expectedDeliveryAt,
         LocalDateTime deliveredAt
@@ -23,12 +29,19 @@ public record DeliveryResponse(
     private static final String SELF_DELIVERY = "자체배송";
 
     public static DeliveryResponse from(Order order) {
-        LocalDateTime expectedDeliveryAt = order.getShippingStartedAt() == null
-                ? null
-                : order.getShippingStartedAt().plusDays(2);
+        LocalDateTime expectedDeliveryAt = order.getShippingStartedAt() != null
+                ? order.getShippingStartedAt().plusDays(2)
+                : order.getPreparationStartedAt() == null
+                        ? null
+                        : order.getPreparationStartedAt().plusDays(3);
 
         return new DeliveryResponse(
                 order.getId(),
+                order.getProductId(),
+                order.getProductName(),
+                order.getProductImageUrl(),
+                order.getQuantity(),
+                order.getAmount(),
                 order.getDeliveryStatus(),
                 order.getRecipientName(),
                 order.getRecipientPhone(),
@@ -38,6 +51,7 @@ public record DeliveryResponse(
                 order.getDeliveryRequest(),
                 SELF_DELIVERY,
                 null,
+                order.getPreparationStartedAt(),
                 order.getShippingStartedAt(),
                 expectedDeliveryAt,
                 order.getDeliveredAt()

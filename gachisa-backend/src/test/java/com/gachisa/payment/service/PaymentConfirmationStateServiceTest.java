@@ -97,7 +97,8 @@ class PaymentConfirmationStateServiceTest {
         given(attemptRepository.findByIdForUpdate(2L)).willReturn(Optional.of(attempt));
         given(participationService.getPaymentInfo(10L))
                 .willReturn(new ParticipationPaymentInfo(10L, 20L, 30L, 1, true));
-        given(orderService.createOrderIfAbsent(new OrderCreateCommand(10L, 1L, 20L)))
+        given(orderService.createOrderIfAbsent(
+                new OrderCreateCommand(10L, 1L, 20L, 30L, 1, 12_600)))
                 .willReturn(orderResponse());
         given(timeProvider.now()).willReturn(NOW);
 
@@ -105,11 +106,14 @@ class PaymentConfirmationStateServiceTest {
                 "payment-key", "gachisa_order", 12_600, PaymentMethod.CARD));
 
         assertThat(response.orderId()).isEqualTo(100L);
-        verify(orderService).createOrderIfAbsent(new OrderCreateCommand(10L, 1L, 20L));
+        verify(orderService).createOrderIfAbsent(
+                new OrderCreateCommand(10L, 1L, 20L, 30L, 1, 12_600));
     }
 
     private OrderResponse orderResponse() {
-        return new OrderResponse(100L, 10L, 1L, DeliveryStatus.PREPARING, NOW, NOW);
+        return new OrderResponse(
+                100L, 10L, 1L, 30L, 40L, "공동구매 상품", null, 1, 12_600, false,
+                DeliveryStatus.WAITING_FOR_GROUP_BUY, NOW, NOW);
     }
 
     private Payment payment() {

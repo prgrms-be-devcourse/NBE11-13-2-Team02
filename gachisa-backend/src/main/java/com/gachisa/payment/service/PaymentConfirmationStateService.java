@@ -98,7 +98,8 @@ public class PaymentConfirmationStateService {
 
     private OrderResponse createOrder(Payment payment, ParticipationPaymentInfo participation) {
         return orderService.createOrderIfAbsent(new OrderCreateCommand(
-                payment.getParticipationId(), payment.getId(), participation.userId()));
+                payment.getParticipationId(), payment.getId(), participation.userId(),
+                participation.groupBuyId(), participation.quantity(), payment.getAmount()));
     }
 
     @Transactional

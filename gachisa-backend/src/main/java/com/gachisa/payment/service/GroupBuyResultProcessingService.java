@@ -4,6 +4,7 @@ import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.participation.service.ParticipationService;
+import com.gachisa.order.service.OrderService;
 import com.gachisa.payment.dto.GroupBuyResultCommand;
 import com.gachisa.payment.dto.GroupBuyResultProcessingResponse;
 import com.gachisa.payment.entity.Payment;
@@ -25,12 +26,14 @@ public class GroupBuyResultProcessingService {
     private final PaymentRepository paymentRepository;
     private final RefundService refundService;
     private final ParticipationService participationService;
+    private final OrderService orderService;
 
     public GroupBuyResultProcessingResponse process(GroupBuyResultCommand command) {
         validateParticipations(command);
         List<Payment> payments = paymentRepository.findAllByParticipationIdInAndStatus(
                 command.participationIds(), PaymentStatus.PAID);
         if (command.result() == GroupBuyResultCommand.Result.ACHIEVED) {
+            orderService.startPreparationForGroupBuy(command.groupBuyId());
             return new GroupBuyResultProcessingResponse(command.groupBuyId(), payments.size(), 0, 0, 0);
         }
 

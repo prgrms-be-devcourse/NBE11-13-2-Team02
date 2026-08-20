@@ -57,6 +57,7 @@ public enum ErrorCode {
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "주문을 찾을 수 없습니다."),
     DELIVERY_ADDRESS_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 배송지가 등록된 주문입니다."),
     DELIVERY_ADDRESS_REQUIRED(HttpStatus.CONFLICT, "배송지 등록이 필요한 주문입니다."),
+    DELIVERY_ADDRESS_NOT_FOUND(HttpStatus.NOT_FOUND, "저장된 배송지를 찾을 수 없습니다."),
     INVALID_DELIVERY_STATUS_TRANSITION(HttpStatus.CONFLICT, "허용되지 않는 배송 상태 변경입니다."),
 
     // Product

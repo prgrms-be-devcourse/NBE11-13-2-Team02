@@ -6,7 +6,7 @@ export const participate = (groupBuyId, quantity) =>
 
 // PT-02. 참여 취소
 export const cancelParticipation = (participationId) =>
-  axiosInstance.delete(`/participations/${participationId}`)
+  axiosInstance.post(`/participations/${participationId}/cancel`)
 
 // PT-03. 실시간 참여 인원 조회 (폴링용)
 export const getParticipationCount = (groupBuyId) =>

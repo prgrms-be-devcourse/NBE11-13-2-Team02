@@ -3,6 +3,8 @@ package com.gachisa.order.service;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.util.TimeProvider;
+import com.gachisa.groupbuy.dto.GroupBuyPaymentInfo;
+import com.gachisa.groupbuy.service.GroupBuyService;
 import com.gachisa.order.dto.DeliveryAddressRequest;
 import com.gachisa.order.dto.DeliveryResponse;
 import com.gachisa.order.dto.OrderCreateCommand;
@@ -11,6 +13,8 @@ import com.gachisa.order.dto.OrderResponse;
 import com.gachisa.order.entity.DeliveryStatus;
 import com.gachisa.order.entity.Order;
 import com.gachisa.order.repository.OrderRepository;
+import com.gachisa.product.dto.ProductResponse;
+import com.gachisa.product.service.ProductService;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,6 +31,8 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final TimeProvider timeProvider;
+    private final GroupBuyService groupBuyService;
+    private final ProductService productService;
 
     @Transactional
     public OrderResponse createOrderIfAbsent(OrderCreateCommand command) {
@@ -36,12 +42,20 @@ public class OrderService {
             return OrderResponse.from(existingOrder);
         }
 
+        GroupBuyPaymentInfo groupBuy = groupBuyService.getPaymentInfo(command.groupBuyId());
+        ProductResponse product = productService.getProduct(groupBuy.productId());
         LocalDateTime now = timeProvider.now();
         Order order = Order.builder()
                 .participationId(command.participationId())
                 .paymentId(command.paymentId())
                 .buyerId(command.buyerId())
-                .deliveryStatus(DeliveryStatus.PREPARING)
+                .groupBuyId(command.groupBuyId())
+                .productId(product.id())
+                .productName(product.name())
+                .productImageUrl(product.imageUrl())
+                .quantity(command.quantity())
+                .amount(command.amount())
+                .deliveryStatus(DeliveryStatus.WAITING_FOR_GROUP_BUY)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -55,7 +69,8 @@ public class OrderService {
                 Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
-        Page<Order> orders = orderRepository.findAllByBuyerId(buyerId, pageable);
+        Page<Order> orders = orderRepository.findAllByBuyerIdAndDeliveryStatusNot(
+                buyerId, DeliveryStatus.CANCELLED, pageable);
         return OrderListResponse.from(orders);
     }
 
@@ -107,7 +122,21 @@ public class OrderService {
     @Transactional
     public int completeDeliveriesDue() {
         LocalDateTime now = timeProvider.now();
-        return orderRepository.completeDeliveriesDue(now.minusDays(2), now);
+        int shippingCount = orderRepository.startShippingDue(now.minusDays(1), now);
+        int deliveredCount = orderRepository.completeDeliveriesDue(now.minusDays(2), now);
+        return shippingCount + deliveredCount;
+    }
+
+    @Transactional
+    public int startPreparationForGroupBuy(Long groupBuyId) {
+        LocalDateTime now = timeProvider.now();
+        return orderRepository.startPreparationForGroupBuy(groupBuyId, now);
+    }
+
+    @Transactional
+    public void reflectRefund(Long paymentId) {
+        orderRepository.findByPaymentId(paymentId)
+                .ifPresent(order -> order.reflectRefund(timeProvider.now()));
     }
 
     private Order getOrder(Long orderId) {

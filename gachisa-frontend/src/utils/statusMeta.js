@@ -16,9 +16,13 @@ export const PARTICIPATION_STATUS = {
 }
 
 export const DELIVERY_STATUS = {
-  PREPARING: { label: '배송준비중', color: 'default' },
+  WAITING_FOR_GROUP_BUY: { label: '공동구매 마감 대기', color: 'default' },
+  PREPARING: { label: '상품 준비 중', color: 'warning' },
   SHIPPING: { label: '배송중', color: 'primary' },
   DELIVERED: { label: '배송완료', color: 'success' },
+  CANCELLED: { label: '주문취소', color: 'error' },
+  RETURNING: { label: '반품중', color: 'warning' },
+  RETURNED: { label: '반품완료', color: 'default' },
 }
 
 export const PAYMENT_STATUS = {

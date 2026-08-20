@@ -56,9 +56,11 @@ class PaymentRecoveryStateServiceTest {
         given(timeProvider.now()).willReturn(NOW);
         given(participationService.getPaymentInfo(10L))
                 .willReturn(new ParticipationPaymentInfo(10L, 20L, 30L, 1, false));
-        given(orderService.createOrderIfAbsent(new OrderCreateCommand(10L, 1L, 20L)))
+        given(orderService.createOrderIfAbsent(
+                new OrderCreateCommand(10L, 1L, 20L, 30L, 1, 12_600)))
                 .willReturn(new OrderResponse(
-                        100L, 10L, 1L, DeliveryStatus.PREPARING, NOW, NOW));
+                        100L, 10L, 1L, 30L, 40L, "공동구매 상품", null, 1, 12_600, false,
+                        DeliveryStatus.WAITING_FOR_GROUP_BUY, NOW, NOW));
 
         var response = stateService.apply(2L, result("DONE"));
 
@@ -66,7 +68,8 @@ class PaymentRecoveryStateServiceTest {
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(attempt.getStatus()).isEqualTo(PaymentAttemptStatus.PAID);
         verify(participationService).confirmPayment(10L);
-        verify(orderService).createOrderIfAbsent(new OrderCreateCommand(10L, 1L, 20L));
+        verify(orderService).createOrderIfAbsent(
+                new OrderCreateCommand(10L, 1L, 20L, 30L, 1, 12_600));
     }
 
     @Test

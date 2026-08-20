@@ -235,5 +235,7 @@ INSERT INTO participation (group_buy_id, user_id, quantity, status, participated
 INSERT INTO payment (participation_id, amount, status, created_at, updated_at, paid_at) VALUES
                                                                                               (3, 12600, 'PAID', NOW(), NOW(), NOW());
 
-INSERT INTO order_table (participation_id, payment_id, buyer_id, delivery_status, created_at, updated_at) VALUES
-                                                                                                               (3, 1, 2, 'PREPARING', NOW(), NOW());
+INSERT INTO order_table
+(participation_id, payment_id, buyer_id, group_buy_id, product_id, product_name,
+ quantity, amount, delivery_status, created_at, updated_at) VALUES
+(3, 1, 2, 1, 1, '텀블러 6종 세트', 1, 12600, 'WAITING_FOR_GROUP_BUY', NOW(), NOW());
