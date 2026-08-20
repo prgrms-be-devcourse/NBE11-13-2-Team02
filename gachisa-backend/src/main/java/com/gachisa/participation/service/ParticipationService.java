@@ -3,6 +3,7 @@ package com.gachisa.participation.service;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.groupbuy.entity.GroupBuy;
+import com.gachisa.groupbuy.service.GroupBuyStockReservation;
 import com.gachisa.groupbuy.service.GroupBuyService;
 import com.gachisa.participation.dto.ParticipationCountResponse;
 import com.gachisa.participation.dto.ParticipationCreateRequest;
@@ -13,11 +14,14 @@ import com.gachisa.participation.entity.ParticipationStatus;
 import com.gachisa.participation.repository.ParticipationRepository;
 import com.gachisa.user.entity.User;
 import com.gachisa.user.repository.UserRepository;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +29,7 @@ public class ParticipationService {
 
     private final ParticipationRepository participationRepository;
     private final GroupBuyService groupBuyService;
+    private final GroupBuyStockReservation groupBuyStockReservation;
     private final UserRepository userRepository;
     // TODO(결제 담당자): PaymentService 주입 후 participate() 안에서 결제 요청까지
     // 같은 트랜잭션으로 묶어 payment.status <-> participation.status 강한 동기화
@@ -32,9 +37,8 @@ public class ParticipationService {
     /**
      * PT-01. 공동구매 참여
      *
-     * 동시성 제어: GroupBuyService.reserveSlots()가 비관적 락으로 group_buy row를 잠그고
-     * currentCount를 증가시킨다. 이 메서드가 @Transactional이므로, reserveSlots 호출과
-     * Participation 저장이 하나의 트랜잭션(하나의 락 범위) 안에서 처리된다.
+     * 동시성 제어: Redis Lua 스크립트로 정원 초과 요청을 먼저 원자적으로 차단하고,
+     * GroupBuyService.reserveSlots()가 비관적 락으로 group_buy row를 다시 확인한다.
      *
      * 정원 초과 시 GroupBuy.reserve()에서 CustomException(GROUP_BUY_FULL)을 던지고,
      * 트랜잭션이 롤백되어 currentCount 증가도 취소된다.
@@ -48,21 +52,30 @@ public class ParticipationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.FORBIDDEN));
 
-        // 1) 비관적 락으로 정원을 예약 (동시성 제어 핵심 지점)
-        GroupBuy groupBuy = groupBuyService.reserveSlots(groupBuyId, request.getQuantity());
+        GroupBuy snapshot = groupBuyService.getGroupBuyEntityOrThrow(groupBuyId);
+        if (!groupBuyStockReservation.tryReserve(snapshot, request.getQuantity())) {
+            throw new CustomException(ErrorCode.GROUP_BUY_FULL);
+        }
+        Runnable releaseReservation = releaseRedisReservationOnRollback(groupBuyId, request.getQuantity());
 
-        // 2) 참여 레코드 생성 (초기 상태: 참여중)
-        Participation participation = Participation.builder()
-                .groupBuy(groupBuy)
-                .user(user)
-                .quantity(request.getQuantity())
-                .build();
-        participationRepository.save(participation);
+        try {
+            GroupBuy groupBuy = groupBuyService.reserveSlots(groupBuyId, request.getQuantity());
 
-        // TODO(결제 연동): paymentService.requestPayment(participation) 호출 후
-        // 결제 성공 시 participation.confirm() 을 같은 트랜잭션에서 호출 (강한 동기화)
+            Participation participation = Participation.builder()
+                    .groupBuy(groupBuy)
+                    .user(user)
+                    .quantity(request.getQuantity())
+                    .build();
+            participationRepository.save(participation);
 
-        return ParticipationResponse.from(participation);
+            // TODO(결제 연동): paymentService.requestPayment(participation) 호출 후
+            // 결제 성공 시 participation.confirm() 을 같은 트랜잭션에서 호출 (강한 동기화)
+
+            return ParticipationResponse.from(participation);
+        } catch (RuntimeException e) {
+            releaseReservation.run();
+            throw e;
+        }
     }
 
     /**
@@ -79,17 +92,20 @@ public class ParticipationService {
         }
 
         participation.cancel();
-        // 예약된 인원을 원자적으로 롤백 (역시 비관적 락 하에서)
+
         groupBuyService.releaseSlots(participation.getGroupBuy().getId(), participation.getQuantity());
+        releaseRedisReservationAfterCommit(participation.getGroupBuy().getId(), participation.getQuantity());
 
         return ParticipationResponse.from(participation);
     }
 
-    /** PT-03. 실시간 참여 인원 조회 (Redis 미사용 - DB 직접 조회) */
+    /** PT-03. 실시간 참여 인원 조회 */
     @Transactional(readOnly = true)
     public ParticipationCountResponse getParticipationCount(Long groupBuyId) {
         GroupBuy groupBuy = groupBuyService.getGroupBuyEntityOrThrow(groupBuyId);
-        return new ParticipationCountResponse(groupBuy.getCurrentCount(), groupBuy.getTargetCount());
+        Long redisCount = groupBuyStockReservation.getReservedCount(groupBuyId);
+        int currentCount = redisCount == null ? groupBuy.getCurrentCount() : Math.toIntExact(redisCount);
+        return new ParticipationCountResponse(currentCount, groupBuy.getTargetCount());
     }
 
     /** PT-04. 참여 이력 조회 */
@@ -139,5 +155,40 @@ public class ParticipationService {
             throw new CustomException(ErrorCode.INVALID_STATUS_TRANSITION);
         }
         participation.refund();
+    }
+
+    private Runnable releaseRedisReservationOnRollback(Long groupBuyId, int quantity) {
+        AtomicBoolean released = new AtomicBoolean(false);
+        Runnable release = () -> {
+            if (released.compareAndSet(false, true)) {
+                groupBuyStockReservation.release(groupBuyId, quantity);
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                        release.run();
+                    }
+                }
+            });
+        }
+        return release;
+    }
+
+    private void releaseRedisReservationAfterCommit(Long groupBuyId, int quantity) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            groupBuyStockReservation.release(groupBuyId, quantity);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                groupBuyStockReservation.release(groupBuyId, quantity);
+            }
+        });
     }
 }
