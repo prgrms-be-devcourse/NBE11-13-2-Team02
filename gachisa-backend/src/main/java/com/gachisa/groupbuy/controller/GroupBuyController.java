@@ -1,6 +1,5 @@
 package com.gachisa.groupbuy.controller;
 
-import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.response.ApiResponse;
 import com.gachisa.global.security.CustomUserDetails;
 import com.gachisa.groupbuy.dto.GroupBuyCreateRequest;
@@ -15,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +27,7 @@ public class GroupBuyController {
 
     /** GB-01. 판매자만 생성 가능 */
     @PostMapping
+    @PreAuthorize("hasRole('SELLER')")
     public ResponseEntity<ApiResponse<GroupBuyResponse>> create(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody GroupBuyCreateRequest request
@@ -40,11 +41,17 @@ public class GroupBuyController {
     @GetMapping
     public ApiResponse<Page<GroupBuyResponse>> list(
             @RequestParam(required = false) GroupBuyStatus status,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Integer minPrice,
+            @RequestParam(required = false) Integer maxPrice,
+            @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<GroupBuyResponse> result = groupBuyService.getGroupBuyList(status, pageable);
+        Page<GroupBuyResponse> result = groupBuyService.getGroupBuyList(
+                status, keyword, categoryId, minPrice, maxPrice, sort, pageable);
         return ApiResponse.ok("공동구매 목록을 조회했습니다.", result);
     }
 
@@ -57,6 +64,7 @@ public class GroupBuyController {
 
     /** GB-05. 판매자 본인 소유만 취소 가능 */
     @PatchMapping("/{groupBuyId}/cancel")
+    @PreAuthorize("hasRole('SELLER')")
     public ApiResponse<GroupBuyResponse> cancel(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long groupBuyId
