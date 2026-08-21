@@ -62,6 +62,7 @@ public enum ErrorCode {
 
     // Product
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상품을 찾을 수 없습니다."),
+    PRODUCT_NAME_DUPLICATED(HttpStatus.CONFLICT, "이미 등록한 상품명입니다."),
     INSUFFICIENT_STOCK(HttpStatus.CONFLICT, "재고가 부족합니다."),
 
     // Image

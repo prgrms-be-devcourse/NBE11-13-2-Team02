@@ -68,6 +68,19 @@ class ProductServiceTest {
     }
 
     @Test
+    void createProductThrowsWhenSameSellerHasDuplicateName() {
+        Category category = category(CATEGORY_ID, "생활/리빙");
+        given(categoryRepository.findById(CATEGORY_ID)).willReturn(Optional.of(category));
+        given(productRepository.existsBySellerIdAndName(SELLER_ID, "텀블러")).willReturn(true);
+        ProductCreateRequest request = new ProductCreateRequest("텀블러", "보온 텀블러", 15000, 30, CATEGORY_ID);
+
+        assertThatThrownBy(() -> productService.createProduct(SELLER_ID, request, "http://img/1.png"))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.PRODUCT_NAME_DUPLICATED);
+    }
+
+    @Test
     void createProductThrowsWhenCategoryNotFound() {
         given(categoryRepository.findById(CATEGORY_ID)).willReturn(Optional.empty());
         ProductCreateRequest request = new ProductCreateRequest("텀블러", "desc", 1000, 10, CATEGORY_ID);
@@ -132,6 +145,30 @@ class ProductServiceTest {
         ProductResponse response = productService.updateProduct(PRODUCT_ID, SELLER_ID, request);
 
         assertThat(response.stock()).isEqualTo(40);
+    }
+
+    @Test
+    void updateProductThrowsWhenNewNameDuplicatedForSameSeller() {
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
+        given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+        given(productRepository.existsBySellerIdAndNameAndIdNot(SELLER_ID, "머그컵", PRODUCT_ID)).willReturn(true);
+        ProductUpdateRequest request = new ProductUpdateRequest("머그컵", null, null, null, null);
+
+        assertThatThrownBy(() -> productService.updateProduct(PRODUCT_ID, SELLER_ID, request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.PRODUCT_NAME_DUPLICATED);
+    }
+
+    @Test
+    void updateProductAllowsKeepingSameName() {
+        Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
+        given(productRepository.findById(PRODUCT_ID)).willReturn(Optional.of(product));
+        ProductUpdateRequest request = new ProductUpdateRequest("텀블러", null, null, null, null);
+
+        ProductResponse response = productService.updateProduct(PRODUCT_ID, SELLER_ID, request);
+
+        assertThat(response.name()).isEqualTo("텀블러");
     }
 
     @Test

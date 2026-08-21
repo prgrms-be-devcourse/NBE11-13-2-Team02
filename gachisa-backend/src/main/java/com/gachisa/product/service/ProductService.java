@@ -33,6 +33,10 @@ public class ProductService {
         Category category = categoryRepository.findById(request.categoryId())
             .orElseThrow(() -> new CustomException(ErrorCode.CATEGORY_NOT_FOUND));
 
+        if (productRepository.existsBySellerIdAndName(sellerId, request.name())) {
+            throw new CustomException(ErrorCode.PRODUCT_NAME_DUPLICATED);
+        }
+
         Product product = Product.builder()
             .seller(userRepository.getReferenceById(sellerId))
             .category(category)
@@ -77,6 +81,10 @@ public class ProductService {
         validateOwner(product, sellerId);
 
         if (request.name() != null && !request.name().isBlank()) {
+            if (!product.getName().equals(request.name())
+                && productRepository.existsBySellerIdAndNameAndIdNot(sellerId, request.name(), productId)) {
+                throw new CustomException(ErrorCode.PRODUCT_NAME_DUPLICATED);
+            }
             product.updateName(request.name());
         }
         if (request.description() != null) {
