@@ -59,7 +59,7 @@ class PaymentRecoveryStateServiceTest {
         given(orderService.createOrderIfAbsent(
                 new OrderCreateCommand(10L, 1L, 20L, 30L, 1, 12_600)))
                 .willReturn(new OrderResponse(
-                        100L, 10L, 1L, 30L, 40L, "공동구매 상품", null, 1, 12_600, false,
+                        100L, "018330029", 10L, 1L, 30L, 40L, "공동구매 상품", null, 1, 12_600, false,
                         DeliveryStatus.WAITING_FOR_GROUP_BUY, NOW, NOW));
 
         var response = stateService.apply(2L, result("DONE"));

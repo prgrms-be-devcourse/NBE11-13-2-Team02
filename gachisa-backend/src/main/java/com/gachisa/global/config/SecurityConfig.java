@@ -37,6 +37,7 @@ public class SecurityConfig {
                     "/api/auth/reissue",
                     "/api/auth/oauth/kakao",
                     "/api/auth/oauth/naver",
+                    "/api/webhooks/toss/**",
                     "/swagger-ui/**",
                     "/v3/api-docs/**",
                     "/images/**"

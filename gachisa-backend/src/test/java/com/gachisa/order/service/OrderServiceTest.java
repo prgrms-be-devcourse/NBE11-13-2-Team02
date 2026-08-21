@@ -62,6 +62,7 @@ class OrderServiceTest {
 
         assertThat(response.participationId()).isEqualTo(10L);
         assertThat(response.paymentId()).isEqualTo(20L);
+        assertThat(response.orderNumber()).matches("\\d{9}");
         assertThat(response.productId()).isEqualTo(50L);
         assertThat(response.productName()).isEqualTo("공동구매 상품");
         assertThat(response.quantity()).isEqualTo(2);
@@ -85,9 +86,8 @@ class OrderServiceTest {
     @Test
     void buyerCanReadOwnOrders() {
         Order order = order(1L, DeliveryStatus.PREPARING);
-        given(orderRepository.findAllByBuyerIdAndDeliveryStatusNot(
+        given(orderRepository.findAllByBuyerId(
                 org.mockito.ArgumentMatchers.eq(30L),
-                org.mockito.ArgumentMatchers.eq(DeliveryStatus.CANCELLED),
                 org.mockito.ArgumentMatchers.any(Pageable.class)))
                 .willReturn(new PageImpl<>(List.of(order)));
 
@@ -125,15 +125,32 @@ class OrderServiceTest {
     }
 
     @Test
+    void registeredDeliveryAddressCannotBeOverwritten() {
+        Order order = order(1L, DeliveryStatus.WAITING_FOR_GROUP_BUY);
+        order.registerDeliveryAddress(
+                "기존 수령인", "010-1111-1111", "06234",
+                "기존 주소", "101호", null, NOW);
+        given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+
+        assertThatThrownBy(() ->
+                orderService.registerDeliveryAddress(1L, 30L, deliveryAddress()))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.DELIVERY_ADDRESS_ALREADY_REGISTERED);
+
+        assertThat(order.getAddress()).isEqualTo("기존 주소");
+    }
+
+    @Test
     void adminCanCorrectDeliveryStatus() {
         Order order = order(1L, DeliveryStatus.PREPARING);
         order.registerDeliveryAddress(
                 "구매자", "010-1234-5678", "06234",
                 "서울특별시 강남구", "101호", null, NOW);
-        given(orderRepository.findById(1L)).willReturn(Optional.of(order));
+        given(orderRepository.findByOrderNumber("018330029")).willReturn(Optional.of(order));
         given(timeProvider.now()).willReturn(NOW.plusHours(1));
 
-        var response = orderService.updateDeliveryStatusByAdmin(1L, DeliveryStatus.DELIVERED);
+        var response = orderService.updateDeliveryStatusByAdmin("018330029", DeliveryStatus.DELIVERED);
 
         assertThat(response.deliveryStatus()).isEqualTo(DeliveryStatus.DELIVERED);
         assertThat(response.deliveredAt()).isEqualTo(NOW.plusHours(1));
@@ -198,6 +215,7 @@ class OrderServiceTest {
 
     private Order order(Long id, DeliveryStatus status) {
         Order order = Order.builder()
+                .orderNumber("018330029")
                 .participationId(10L)
                 .paymentId(20L)
                 .buyerId(30L)

@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 
 public record DeliveryResponse(
         Long orderId,
+        String orderNumber,
         Long productId,
         String productName,
         String productImageUrl,
@@ -37,6 +38,7 @@ public record DeliveryResponse(
 
         return new DeliveryResponse(
                 order.getId(),
+                order.getOrderNumber(),
                 order.getProductId(),
                 order.getProductName(),
                 order.getProductImageUrl(),

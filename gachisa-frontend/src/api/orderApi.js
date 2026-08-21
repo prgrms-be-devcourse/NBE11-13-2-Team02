@@ -5,11 +5,14 @@ export const getMyOrders = ({ page = 0, size = 20 } = {}) =>
 
 export const getMyOrder = (orderId) => axiosInstance.get(`/users/me/orders/${orderId}`)
 
+export const getMyOrderByParticipation = (participationId) =>
+  axiosInstance.get(`/users/me/orders/by-participation/${participationId}`)
+
 export const registerDeliveryAddress = (orderId, request) =>
   axiosInstance.post(`/users/me/orders/${orderId}/delivery-address`, request)
 
 export const getDelivery = (orderId) =>
   axiosInstance.get(`/users/me/orders/${orderId}/delivery`)
 
-export const updateDeliveryStatusByAdmin = (orderId, deliveryStatus) =>
-  axiosInstance.patch(`/admin/orders/${orderId}/delivery-status`, { deliveryStatus })
+export const updateDeliveryStatusByAdmin = (orderNumber, deliveryStatus) =>
+  axiosInstance.patch(`/admin/orders/${orderNumber}/delivery-status`, { deliveryStatus })

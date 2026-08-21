@@ -63,6 +63,14 @@ class TossWebhookServiceTest {
                 .isEqualTo(ErrorCode.PAYMENT_GATEWAY_INVALID_RESPONSE);
     }
 
+    @Test
+    void webhookRejectsMissingTransmissionId() {
+        assertThatThrownBy(() -> webhookService.process(null, request("DONE")))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_REQUEST);
+    }
+
     private TossPaymentWebhookRequest request(String status) {
         return new TossPaymentWebhookRequest(
                 "PAYMENT_STATUS_CHANGED",

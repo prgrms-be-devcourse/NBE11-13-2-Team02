@@ -127,7 +127,6 @@ export default function AppLayout() {
                 </MenuItem>
                 <Divider />
                 <MenuItem onClick={() => goTo('/my/participations')}>내 참여내역</MenuItem>
-                <MenuItem onClick={() => goTo('/my/orders')}>내 주문</MenuItem>
                 <MenuItem onClick={() => goTo('/my/page')}>마이페이지</MenuItem>
                 {isSeller && (
                   <>

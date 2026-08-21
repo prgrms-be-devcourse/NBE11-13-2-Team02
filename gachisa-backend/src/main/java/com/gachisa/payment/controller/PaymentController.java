@@ -5,6 +5,8 @@ import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.payment.dto.PaymentConfirmRequest;
 import com.gachisa.payment.dto.PaymentRequest;
 import com.gachisa.payment.dto.PaymentResponse;
+import com.gachisa.payment.dto.PaymentCancellationResponse;
+import com.gachisa.payment.dto.RefundResponse;
 import com.gachisa.payment.service.PaymentService;
 import com.gachisa.payment.service.PaymentCancellationService;
 import jakarta.validation.Valid;
@@ -29,11 +31,17 @@ public class PaymentController {
     private final PaymentCancellationService paymentCancellationService;
 
     @PostMapping("/participations/{participationId}/cancel")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void cancelParticipation(
+    public PaymentCancellationResponse cancelParticipation(
             @PathVariable Long participationId,
             @AuthenticationPrincipal(expression = "userId") Long userId) {
-        paymentCancellationService.cancel(participationId, requireUserId(userId));
+        return paymentCancellationService.cancel(participationId, requireUserId(userId));
+    }
+
+    @GetMapping("/participations/{participationId}/refund")
+    public RefundResponse getRefundStatus(
+            @PathVariable Long participationId,
+            @AuthenticationPrincipal(expression = "userId") Long userId) {
+        return paymentCancellationService.getRefundStatus(participationId, requireUserId(userId));
     }
 
     @PostMapping("/participations/{participationId}/payment")
@@ -61,6 +69,22 @@ public class PaymentController {
             @Valid @RequestBody PaymentConfirmRequest request
     ) {
         return paymentService.confirmPayment(paymentAttemptId, requireUserId(userId), request);
+    }
+
+    @PostMapping("/payments/confirm")
+    public PaymentResponse confirmPaymentByPgOrderId(
+            @AuthenticationPrincipal(expression = "userId") Long userId,
+            @Valid @RequestBody PaymentConfirmRequest request
+    ) {
+        return paymentService.confirmPaymentByPgOrderId(requireUserId(userId), request);
+    }
+
+    @GetMapping("/payments/pg-orders/{pgOrderId}")
+    public PaymentResponse getPaymentByPgOrderId(
+            @PathVariable String pgOrderId,
+            @AuthenticationPrincipal(expression = "userId") Long userId
+    ) {
+        return paymentService.getPaymentByPgOrderId(pgOrderId, requireUserId(userId));
     }
 
     @GetMapping("/payments/{paymentId}")

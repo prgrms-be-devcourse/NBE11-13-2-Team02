@@ -10,7 +10,7 @@ import Stack from '@mui/material/Stack'
 import { updateDeliveryStatusByAdmin } from '../api/orderApi.js'
 
 export default function AdminDeliveryPage() {
-  const [orderId, setOrderId] = useState('')
+  const [orderNumber, setOrderNumber] = useState('')
   const [deliveryStatus, setDeliveryStatus] = useState('SHIPPING')
   const [message, setMessage] = useState('')
   const [isError, setIsError] = useState(false)
@@ -20,7 +20,7 @@ export default function AdminDeliveryPage() {
     event.preventDefault()
     setSubmitting(true)
     try {
-      await updateDeliveryStatusByAdmin(orderId, deliveryStatus)
+      await updateDeliveryStatusByAdmin(orderNumber, deliveryStatus)
       setIsError(false)
       setMessage('배송 상태를 변경했습니다.')
     } catch (requestError) {
@@ -40,10 +40,12 @@ export default function AdminDeliveryPage() {
         <Stack spacing={2}>
           {message && <Alert severity={isError ? 'error' : 'success'}>{message}</Alert>}
           <TextField
-            label="주문 ID"
+            label="주문번호"
+            placeholder="예: 018330029"
             required
-            value={orderId}
-            onChange={(event) => setOrderId(event.target.value)}
+            value={orderNumber}
+            onChange={(event) => setOrderNumber(event.target.value.replace(/\D/g, '').slice(0, 9))}
+            inputProps={{ inputMode: 'numeric', maxLength: 9 }}
             fullWidth
           />
           <TextField

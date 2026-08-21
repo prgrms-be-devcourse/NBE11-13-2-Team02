@@ -26,6 +26,9 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true, length = 9, updatable = false)
+    private String orderNumber;
+
     @Column(nullable = false, unique = true)
     private Long participationId;
 
@@ -87,10 +90,11 @@ public class Order {
     private LocalDateTime updatedAt;
 
     @Builder
-    private Order(Long participationId, Long paymentId, Long buyerId, Long groupBuyId,
+    private Order(String orderNumber, Long participationId, Long paymentId, Long buyerId, Long groupBuyId,
                   Long productId, String productName, String productImageUrl, int quantity, int amount,
                   DeliveryStatus deliveryStatus, LocalDateTime createdAt,
                   LocalDateTime updatedAt) {
+        this.orderNumber = orderNumber;
         this.participationId = participationId;
         this.paymentId = paymentId;
         this.buyerId = buyerId;

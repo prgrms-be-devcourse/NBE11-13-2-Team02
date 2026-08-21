@@ -45,6 +45,14 @@ public class OrderController {
         return orderService.getMyOrder(orderId, requireUserId(userId));
     }
 
+    @GetMapping("/users/me/orders/by-participation/{participationId}")
+    public OrderResponse getMyOrderByParticipation(
+            @PathVariable Long participationId,
+            @AuthenticationPrincipal(expression = "userId") Long userId
+    ) {
+        return orderService.getMyOrderByParticipation(participationId, requireUserId(userId));
+    }
+
     @PostMapping("/users/me/orders/{orderId}/delivery-address")
     public DeliveryResponse registerDeliveryAddress(
             @PathVariable Long orderId,
@@ -63,12 +71,12 @@ public class OrderController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PatchMapping("/admin/orders/{orderId}/delivery-status")
+    @PatchMapping("/admin/orders/{orderNumber}/delivery-status")
     public DeliveryResponse updateDeliveryStatusByAdmin(
-            @PathVariable Long orderId,
+            @PathVariable String orderNumber,
             @Valid @RequestBody DeliveryStatusUpdateRequest request
     ) {
-        return orderService.updateDeliveryStatusByAdmin(orderId, request.deliveryStatus());
+        return orderService.updateDeliveryStatusByAdmin(orderNumber, request.deliveryStatus());
     }
 
     private Long requireUserId(Long userId) {
