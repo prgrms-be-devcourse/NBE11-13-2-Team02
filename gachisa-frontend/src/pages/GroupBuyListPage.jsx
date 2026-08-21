@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Grid from '@mui/material/Grid'
@@ -13,12 +13,18 @@ import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
 import Pagination from '@mui/material/Pagination'
 import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
+import Collapse from '@mui/material/Collapse'
+import CloseIcon from '@mui/icons-material/Close'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import StorefrontIcon from '@mui/icons-material/Storefront'
-import { searchGroupBuys } from '../api/groupBuyApi'
+import { searchGroupBuys, cancelGroupBuy } from '../api/groupBuyApi'
 import { getCategories } from '../api/categoryApi'
 import { getErrorMessage } from '../api/errorMessage'
+import { useAuth } from '../context/AuthContext.jsx'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 import { GROUP_BUY_STATUS, formatPrice, statusMeta } from '../utils/statusMeta'
+import { findCategoryById } from '../utils/categoryTree'
 
 const PAGE_SIZE = 9
 // 백엔드 GroupBuyService.applySort가 지원하는 값 그대로 사용한다 (그 외 값은 마감임박순으로 처리됨).
@@ -26,12 +32,60 @@ const PAGE_SIZE = 9
 // 카드에 이미 쓰고 있는 "D-N" 표기와 맞춰 "며칠 남았는지" 기준이라는 걸 라벨에서 드러낸다.
 const SORT_OPTIONS = [
   { value: 'deadline_asc', label: '마감일 임박순' },
-  { value: 'popular', label: '인기순' },
   { value: 'price_asc', label: '낮은 가격순' },
   { value: 'price_desc', label: '높은 가격순' },
 ]
 
+// 사이드바 카테고리 트리: 하위 카테고리가 있으면 화살표로 접었다 펼 수 있다.
+function CategorySidebarNode({ node, activeCategoryId }) {
+  const hasChildren = (node.children ?? []).length > 0
+  const [expanded, setExpanded] = useState(true)
+  const isActive = String(node.id) === activeCategoryId
+
+  return (
+    <Box>
+      <Stack direction="row" alignItems="center" spacing={0.2}>
+        <IconButton
+          size="small"
+          onClick={() => setExpanded((v) => !v)}
+          disabled={!hasChildren}
+          sx={{
+            width: 18,
+            height: 18,
+            flexShrink: 0,
+            visibility: hasChildren ? 'visible' : 'hidden',
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+            transition: 'transform 0.15s',
+          }}
+        >
+          <ChevronRightIcon sx={{ fontSize: 15 }} />
+        </IconButton>
+        <Typography
+          component={Link}
+          to={`/?categoryId=${node.id}`}
+          variant="body2"
+          fontWeight={isActive ? 700 : 400}
+          color={isActive ? 'primary.main' : 'text.secondary'}
+          sx={{ textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
+        >
+          {node.name}
+        </Typography>
+      </Stack>
+      {hasChildren && (
+        <Collapse in={expanded}>
+          <Stack spacing={0.8} sx={{ pl: 2.2, mt: 0.8, borderLeft: '1px solid', borderColor: 'divider' }}>
+            {node.children.map((child) => (
+              <CategorySidebarNode key={child.id} node={child} activeCategoryId={activeCategoryId} />
+            ))}
+          </Stack>
+        </Collapse>
+      )}
+    </Box>
+  )
+}
+
 export default function GroupBuyListPage() {
+  const { isAdmin } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const categoryId = searchParams.get('categoryId') ?? ''
   const keyword = searchParams.get('keyword') ?? ''
@@ -46,6 +100,7 @@ export default function GroupBuyListPage() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
     getCategories()
@@ -57,7 +112,7 @@ export default function GroupBuyListPage() {
     setPage(0)
   }, [categoryId, keyword, minPrice, maxPrice, sort])
 
-  useEffect(() => {
+  const fetchList = useCallback(() => {
     let cancelled = false
     setLoading(true)
     setError('')
@@ -83,9 +138,12 @@ export default function GroupBuyListPage() {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId, keyword, minPrice, maxPrice, sort, page])
 
-  const activeCategory = categories.find((c) => String(c.id) === categoryId)
+  useEffect(() => fetchList(), [fetchList])
+
+  const activeCategory = findCategoryById(categories, categoryId)
   const heading = keyword
     ? `'${keyword}' 검색 결과`
     : activeCategory
@@ -93,6 +151,22 @@ export default function GroupBuyListPage() {
       : '진행중인 공동구매'
 
   const handleResetFilter = () => setSearchParams({})
+
+  // 관리자 전용: 목록 카드에서 바로 공동구매 취소(운영 목적). 참여자가 있으면 자동 환불 흐름을 탄다.
+  const handleAdminCancel = async (e, groupBuyId) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!window.confirm('이 공동구매를 취소하시겠습니까? 참여자가 있으면 환불이 진행됩니다.')) return
+    setDeletingId(groupBuyId)
+    try {
+      await cancelGroupBuy(groupBuyId)
+      fetchList()
+    } catch (err) {
+      setError(getErrorMessage(err, '공동구매 취소에 실패했습니다.'))
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const content = result.content ?? []
 
@@ -114,17 +188,7 @@ export default function GroupBuyListPage() {
             전체
           </Typography>
           {categories.map((c) => (
-            <Typography
-              key={c.id}
-              component={Link}
-              to={`/?categoryId=${c.id}`}
-              variant="body2"
-              fontWeight={categoryId === String(c.id) ? 700 : 400}
-              color={categoryId === String(c.id) ? 'primary.main' : 'text.secondary'}
-              sx={{ textDecoration: 'none', '&:hover': { color: 'primary.main' } }}
-            >
-              {c.name}
-            </Typography>
+            <CategorySidebarNode key={c.id} node={c} activeCategoryId={categoryId} />
           ))}
         </Stack>
 
@@ -190,7 +254,31 @@ export default function GroupBuyListPage() {
 
                 return (
                   <Grid item xs={12} sm={6} lg={4} key={gb.groupBuyId}>
-                    <Card sx={isFull ? { filter: 'grayscale(0.4)', opacity: 0.85 } : undefined}>
+                    <Card
+                      sx={{
+                        position: 'relative',
+                        ...(isFull ? { filter: 'grayscale(0.4)', opacity: 0.85 } : {}),
+                      }}
+                    >
+                      {isAdmin && (
+                        <IconButton
+                          aria-label="공동구매 삭제"
+                          onClick={(e) => handleAdminCancel(e, gb.groupBuyId)}
+                          disabled={deletingId === gb.groupBuyId}
+                          sx={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            zIndex: 1,
+                            bgcolor: 'rgba(0,0,0,0.55)',
+                            color: '#fff',
+                            '&:hover': { bgcolor: 'rgba(0,0,0,0.75)' },
+                          }}
+                          size="small"
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      )}
                       <CardActionArea component={Link} to={`/group-buys/${gb.groupBuyId}`}>
                         <Box sx={{ position: 'relative', height: 110 }}>
                           {gb.imageUrl ? (

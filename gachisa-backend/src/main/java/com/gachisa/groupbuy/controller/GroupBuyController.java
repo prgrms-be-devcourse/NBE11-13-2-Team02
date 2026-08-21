@@ -77,14 +77,16 @@ public class GroupBuyController {
         return ApiResponse.ok("공동구매 상세를 조회했습니다.", response);
     }
 
-    /** GB-05. 판매자 본인 소유만 취소 가능 */
+    /** GB-05. 판매자 본인 소유는 취소 가능, 관리자는 아무 공동구매나 취소 가능(운영 목적) */
     @PatchMapping("/{groupBuyId}/cancel")
-    @PreAuthorize("hasRole('SELLER')")
+    @PreAuthorize("hasAnyRole('SELLER', 'ADMIN')")
     public ApiResponse<GroupBuyResponse> cancel(
         @AuthenticationPrincipal CustomUserDetails userDetails,
         @PathVariable Long groupBuyId
     ) {
-        GroupBuyResponse response = groupBuyService.cancelGroupBuy(userDetails.getUserId(), groupBuyId);
+        boolean isAdmin = "ADMIN".equals(userDetails.getRole());
+        GroupBuyResponse response =
+            groupBuyService.cancelGroupBuy(userDetails.getUserId(), groupBuyId, isAdmin);
         return ApiResponse.ok("공동구매가 취소되었습니다.", response);
     }
 }

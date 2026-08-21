@@ -59,6 +59,13 @@ public class ProductService {
             .collect(Collectors.toList());
     }
 
+    /** 판매자 본인이 등록한 상품만 조회 (상품 관리 페이지용) */
+    public List<ProductResponse> getMyProducts(Long sellerId) {
+        return productRepository.findBySellerId(sellerId).stream()
+            .map(ProductResponse::of)
+            .collect(Collectors.toList());
+    }
+
     public ProductResponse getProduct(Long productId) {
         Product product = getProductOrThrow(productId);
         return ProductResponse.of(product);
@@ -70,7 +77,15 @@ public class ProductService {
     }
 
     public List<ProductResponse> searchProducts(Long categoryId, Integer minPrice, Integer maxPrice, String keyword) {
-        return productRepository.search(categoryId, minPrice, maxPrice, keyword).stream()
+        return productRepository.search(null, categoryId, minPrice, maxPrice, keyword).stream()
+            .map(ProductResponse::of)
+            .collect(Collectors.toList());
+    }
+
+    /** 판매자 본인 상품 안에서만 검색 (상품 관리 페이지용) - 판매중지 상품도 포함 */
+    public List<ProductResponse> searchMyProducts(Long sellerId, Long categoryId, Integer minPrice,
+                                                  Integer maxPrice, String keyword) {
+        return productRepository.search(sellerId, categoryId, minPrice, maxPrice, keyword).stream()
             .map(ProductResponse::of)
             .collect(Collectors.toList());
     }

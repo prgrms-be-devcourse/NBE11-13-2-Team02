@@ -2,6 +2,13 @@ import axiosInstance from './axiosInstance'
 
 export const getProducts = () => axiosInstance.get('/products')
 
+// SELLER 전용 - 내가 등록한 상품만 조회 (상품 관리 페이지용)
+export const getMyProducts = () => axiosInstance.get('/products/my')
+
+// SELLER 전용 - 내 상품 안에서만 검색 (판매중지 상품도 포함됨)
+export const searchMyProducts = ({ categoryId, minPrice, maxPrice, keyword } = {}) =>
+  axiosInstance.get('/products/my/search', { params: { categoryId, minPrice, maxPrice, keyword } })
+
 export const getProduct = (productId) => axiosInstance.get(`/products/${productId}`)
 
 export const searchProducts = ({ categoryId, minPrice, maxPrice, keyword } = {}) =>

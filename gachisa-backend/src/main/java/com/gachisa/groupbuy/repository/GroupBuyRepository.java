@@ -32,7 +32,8 @@ public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long>, JpaSp
 
     // ---- 검색/필터/정렬 (GB-02) ----
     // 가격 필터/정렬은 정가(basePrice)가 아니라 "할인가(basePrice - basePrice*discountRate)" 기준으로 계산한다.
-    // 정렬 방향(마감임박/인기/가격오름/가격내림)마다 ORDER BY가 달라야 해서 쿼리를 4개로 분리했다.
+    // 정렬 방향(마감임박/가격오름/가격내림)마다 ORDER BY가 달라야 해서 쿼리를 3개로 분리했다.
+    // 인기순은 참여 인원(currentCount)만으로는 지표가 부족하다고 판단해 뺐다 (조회수 등 별도 데이터 필요).
 
     String SEARCH_WHERE_CLAUSE =
         "FROM GroupBuy g JOIN g.product p JOIN p.category c " +
@@ -50,15 +51,6 @@ public interface GroupBuyRepository extends JpaRepository<GroupBuy, Long>, JpaSp
                                          @Param("minPrice") Integer minPrice,
                                          @Param("maxPrice") Integer maxPrice,
                                          Pageable pageable);
-
-    @Query(value = "SELECT g " + SEARCH_WHERE_CLAUSE + "ORDER BY g.currentCount DESC",
-        countQuery = "SELECT COUNT(g) " + SEARCH_WHERE_CLAUSE)
-    Page<GroupBuy> searchOrderByPopular(@Param("status") GroupBuyStatus status,
-                                        @Param("keyword") String keyword,
-                                        @Param("categoryId") Long categoryId,
-                                        @Param("minPrice") Integer minPrice,
-                                        @Param("maxPrice") Integer maxPrice,
-                                        Pageable pageable);
 
     @Query(value = "SELECT g " + SEARCH_WHERE_CLAUSE + "ORDER BY (p.basePrice - p.basePrice * g.discountRate) ASC",
         countQuery = "SELECT COUNT(g) " + SEARCH_WHERE_CLAUSE)

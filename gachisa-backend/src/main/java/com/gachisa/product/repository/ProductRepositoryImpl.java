@@ -15,17 +15,28 @@ public class ProductRepositoryImpl implements ProductRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<Product> search(Long categoryId, Integer minPrice, Integer maxPrice, String keyword) {
+    public List<Product> search(Long sellerId, Long categoryId, Integer minPrice, Integer maxPrice, String keyword) {
         return queryFactory
             .selectFrom(product)
             .where(
-                product.status.eq(ProductStatus.ON_SALE),
+                sellerEq(sellerId),
+                onSaleOnlyForPublicSearch(sellerId),
                 categoryEq(categoryId),
                 priceGoe(minPrice),
                 priceLoe(maxPrice),
                 keywordContains(keyword)
             )
             .fetch();
+    }
+
+    private BooleanExpression sellerEq(Long sellerId) {
+        return sellerId != null ? product.seller.id.eq(sellerId) : null;
+    }
+
+    // 공개 검색(sellerId 없음)은 판매중인 상품만 노출한다. "내 상품 관리"(sellerId 있음)는
+    // 판매자가 자기 재고 전체를 관리해야 하므로 판매중지 상품도 검색에 포함시킨다.
+    private BooleanExpression onSaleOnlyForPublicSearch(Long sellerId) {
+        return sellerId == null ? product.status.eq(ProductStatus.ON_SALE) : null;
     }
 
     private BooleanExpression categoryEq(Long categoryId) {

@@ -13,20 +13,18 @@ import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
-import Select from '@mui/material/Select'
 import Alert from '@mui/material/Alert'
 import SearchIcon from '@mui/icons-material/Search'
 import CloseIcon from '@mui/icons-material/Close'
 import Logo from '../Logo.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { getCategories } from '../../api/categoryApi'
+import CategoryTreeSelect from '../CategoryTreeSelect.jsx'
 
 const emptyForm = { keyword: '', categoryId: '', minPrice: '', maxPrice: '' }
 
 export default function AppLayout() {
-  const { user, isAuthenticated, isSeller, isAdmin, logout } = useAuth()
+  const { user, isAuthenticated, isBuyer, isSeller, isAdmin, logout } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [anchorEl, setAnchorEl] = useState(null)
@@ -125,12 +123,19 @@ export default function AppLayout() {
                     {user?.name} 님
                   </Typography>
                 </MenuItem>
-                <Divider />
-                <MenuItem onClick={() => goTo('/my/participations')}>내 참여내역</MenuItem>
-                <MenuItem onClick={() => goTo('/my/page')}>마이페이지</MenuItem>
+                {isBuyer && (
+                  <>
+                    <Divider />
+                    <MenuItem onClick={() => goTo('/my/participations')}>내 참여내역</MenuItem>
+                    <MenuItem onClick={() => goTo('/my/page')}>마이페이지</MenuItem>
+                  </>
+                )}
                 {isSeller && (
                   <>
                     <Divider />
+                    <MenuItem onClick={() => goTo('/')}>공동구매 목록</MenuItem>
+                    <Divider />
+                    <MenuItem onClick={() => goTo('/my/products')}>내 상품 관리</MenuItem>
                     <MenuItem onClick={() => goTo('/products/new')}>상품 등록</MenuItem>
                     <MenuItem onClick={() => goTo('/group-buys/new')}>공동구매 등록</MenuItem>
                   </>
@@ -182,22 +187,12 @@ export default function AppLayout() {
               fullWidth
               size="small"
             />
-            <FormControl fullWidth size="small">
-              <InputLabel id="nav-category-filter-label">카테고리</InputLabel>
-              <Select
-                labelId="nav-category-filter-label"
-                label="카테고리"
-                value={form.categoryId}
-                onChange={handleFormChange('categoryId')}
-              >
-                <MenuItem value="">전체</MenuItem>
-                {categories.map((c) => (
-                  <MenuItem key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <CategoryTreeSelect
+              categories={categories}
+              value={form.categoryId}
+              onChange={(id) => setForm((prev) => ({ ...prev, categoryId: id }))}
+              fullWidth
+            />
             <Stack direction="row" spacing={2}>
               <TextField
                 label="최소 가격"

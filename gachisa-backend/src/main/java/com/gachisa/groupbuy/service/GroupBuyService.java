@@ -58,7 +58,8 @@ public class GroupBuyService {
     /**
      * 검색 전용 (GET /api/group-buys/search) - 파라미터 7개
      * 가격 필터/정렬은 할인가(basePrice - basePrice*discountRate) 기준으로 DB에서 직접 계산한다.
-     * sort 값: "popular" / "price_asc" / "price_desc" / 그 외(기본값) = 마감임박순
+     * sort 값: "price_asc" / "price_desc" / 그 외(기본값) = 마감임박순
+     * (인기순은 참여 인원만으로는 지표가 부족하다고 판단해 제외함)
      */
     @Transactional(readOnly = true)
     public Page<GroupBuyResponse> searchGroupBuy(GroupBuyStatus status, String keyword, Long categoryId,
@@ -69,8 +70,6 @@ public class GroupBuyService {
         String sortKey = (sort != null) ? sort.trim().toLowerCase() : "deadline";
 
         Page<GroupBuy> page = switch (sortKey) {
-            case "popular" -> groupBuyRepository.searchOrderByPopular(
-                targetStatus, normalizedKeyword, categoryId, minPrice, maxPrice, pageable);
             case "price_asc" -> groupBuyRepository.searchOrderByPriceAsc(
                 targetStatus, normalizedKeyword, categoryId, minPrice, maxPrice, pageable);
             case "price_desc" -> groupBuyRepository.searchOrderByPriceDesc(
@@ -94,13 +93,13 @@ public class GroupBuyService {
         return GroupBuyDetailResponse.of(groupBuy, remainingSeconds);
     }
 
-    /** GB-05: 판매자가 마감 전 취소 */
+    /** GB-05: 판매자가 마감 전 취소. 관리자는 소유 여부와 무관하게 취소 가능(운영 목적). */
     @Transactional
-    public GroupBuyResponse cancelGroupBuy(Long sellerId, Long groupBuyId) {
+    public GroupBuyResponse cancelGroupBuy(Long userId, Long groupBuyId, boolean isAdmin) {
         GroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
             .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
 
-        if (!groupBuy.isOwnedBy(sellerId)) {
+        if (!isAdmin && !groupBuy.isOwnedBy(userId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
         groupBuy.cancelBySeller();
