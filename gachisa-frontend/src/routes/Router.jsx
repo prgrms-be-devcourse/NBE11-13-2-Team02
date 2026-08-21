@@ -24,6 +24,7 @@ import ProductListPage from '../pages/ProductListPage.jsx'
 import ProductDetailPage from '../pages/ProductDetailPage.jsx'
 import ProductCreatePage from '../pages/ProductCreatePage.jsx'
 import ProductEditPage from '../pages/ProductEditPage.jsx'
+import MyProductsPage from '../pages/MyProductsPage.jsx'
 import CategoryManagePage from '../pages/CategoryManagePage.jsx'
 
 import MyPage from '../pages/MyPage.jsx'
@@ -64,6 +65,7 @@ export default function Router() {
             <Route path="/group-buys/new" element={<GroupBuyCreatePage />} />
             <Route path="/products/new" element={<ProductCreatePage />} />
             <Route path="/products/:productId/edit" element={<ProductEditPage />} />
+            <Route path="/my/products" element={<MyProductsPage />} />
           </Route>
 
           <Route element={<RoleRoute roles={['ROLE_ADMIN']} />}>

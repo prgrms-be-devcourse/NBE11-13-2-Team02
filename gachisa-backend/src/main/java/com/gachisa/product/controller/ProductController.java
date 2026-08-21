@@ -48,6 +48,22 @@ public class ProductController {
         return productService.getProducts();
     }
 
+    @GetMapping("/my")
+    @PreAuthorize("hasRole('SELLER')")
+    public List<ProductResponse> getMyProducts(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return productService.getMyProducts(userDetails.getUserId());
+    }
+
+    @GetMapping("/my/search")
+    @PreAuthorize("hasRole('SELLER')")
+    public List<ProductResponse> searchMyProducts(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                                   @RequestParam(required = false) Long categoryId,
+                                                   @RequestParam(required = false) Integer minPrice,
+                                                   @RequestParam(required = false) Integer maxPrice,
+                                                   @RequestParam(required = false) String keyword) {
+        return productService.searchMyProducts(userDetails.getUserId(), categoryId, minPrice, maxPrice, keyword);
+    }
+
     @GetMapping("/{productId}")
     public ProductResponse getProduct(@PathVariable Long productId) {
         return productService.getProduct(productId);

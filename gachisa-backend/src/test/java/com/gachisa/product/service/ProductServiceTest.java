@@ -115,12 +115,12 @@ class ProductServiceTest {
     @Test
     void searchProductsDelegatesFiltersToRepository() {
         Product product = product(PRODUCT_ID, SELLER_ID, ProductStatus.ON_SALE, 10);
-        given(productRepository.search(CATEGORY_ID, 1000, 20000, "원두")).willReturn(List.of(product));
+        given(productRepository.search(null, CATEGORY_ID, 1000, 20000, "원두")).willReturn(List.of(product));
 
         List<ProductResponse> responses = productService.searchProducts(CATEGORY_ID, 1000, 20000, "원두");
 
         assertThat(responses).hasSize(1);
-        verify(productRepository).search(CATEGORY_ID, 1000, 20000, "원두");
+        verify(productRepository).search(null, CATEGORY_ID, 1000, 20000, "원두");
     }
 
     @Test

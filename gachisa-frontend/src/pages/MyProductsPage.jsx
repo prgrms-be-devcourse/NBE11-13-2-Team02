@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -15,42 +15,28 @@ import CardMedia from '@mui/material/CardMedia'
 import Chip from '@mui/material/Chip'
 import Collapse from '@mui/material/Collapse'
 import TuneIcon from '@mui/icons-material/Tune'
-import { useAuth } from '../context/AuthContext.jsx'
-import { getErrorMessage } from '../api/errorMessage'
-import { getProducts, searchProducts } from '../api/productApi'
+import { getMyProducts, searchMyProducts } from '../api/productApi'
 import { getCategories } from '../api/categoryApi'
-import { fetchActiveGroupBuyIdsByProductId } from '../utils/groupBuyLookup'
+import { getErrorMessage } from '../api/errorMessage'
 import { PRODUCT_STATUS, statusMeta, formatPrice } from '../utils/statusMeta'
 import LoadingScreen from '../components/LoadingScreen.jsx'
 import CategoryTreeSelect from '../components/CategoryTreeSelect.jsx'
 
 const emptyFilters = { keyword: '', categoryId: '', minPrice: '', maxPrice: '' }
 
-export default function ProductListPage() {
-  const { isSeller } = useAuth()
-  const [searchParams] = useSearchParams()
-  const initialFilters = {
-    ...emptyFilters,
-    keyword: searchParams.get('keyword') ?? '',
-    categoryId: searchParams.get('categoryId') ?? '',
-  }
+export default function MyProductsPage() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
-  const [groupBuyIdsByProductId, setGroupBuyIdsByProductName] = useState({})
-  const [filters, setFilters] = useState(initialFilters)
+  const [filters, setFilters] = useState(emptyFilters)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filterError, setFilterError] = useState('')
-  const hasActiveFilter = Object.values(initialFilters).some((v) => v !== '')
-  const [filterOpen, setFilterOpen] = useState(hasActiveFilter)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   useEffect(() => {
     getCategories()
       .then(({ data }) => setCategories(data ?? []))
       .catch(() => setCategories([]))
-    fetchActiveGroupBuyIdsByProductId()
-      .then(setGroupBuyIdsByProductName)
-      .catch(() => setGroupBuyIdsByProductName({}))
   }, [])
 
   const fetchProducts = useCallback(async (currentFilters) => {
@@ -59,23 +45,23 @@ export default function ProductListPage() {
     try {
       const hasFilter = Object.values(currentFilters).some((value) => value !== '' && value !== undefined)
       const { data } = hasFilter
-        ? await searchProducts({
+        ? await searchMyProducts({
             keyword: currentFilters.keyword || undefined,
             categoryId: currentFilters.categoryId || undefined,
             minPrice: currentFilters.minPrice === '' ? undefined : Number(currentFilters.minPrice),
             maxPrice: currentFilters.maxPrice === '' ? undefined : Number(currentFilters.maxPrice),
           })
-        : await getProducts()
+        : await getMyProducts()
       setProducts(data)
     } catch (err) {
-      setError(getErrorMessage(err, '상품 목록을 불러오지 못했습니다.'))
+      setError(getErrorMessage(err, '내 상품 목록을 불러오지 못했습니다.'))
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchProducts(initialFilters)
+    fetchProducts(emptyFilters)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchProducts])
 
@@ -111,22 +97,20 @@ export default function ProductListPage() {
     <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Typography variant="h5" fontWeight={700}>
-          상품 목록
+          내 상품 관리
         </Typography>
         <Stack direction="row" spacing={1} alignItems="center">
           <Button
             size="small"
             startIcon={<TuneIcon fontSize="small" />}
             onClick={() => setFilterOpen((v) => !v)}
-            sx={{ color: hasActiveFilter ? 'primary.main' : 'text.secondary', whiteSpace: 'nowrap' }}
+            sx={{ color: filterOpen ? 'primary.main' : 'text.secondary', whiteSpace: 'nowrap' }}
           >
             상세검색
           </Button>
-          {isSeller && (
-            <Button component={Link} to="/products/new" variant="contained">
-              상품 등록
-            </Button>
-          )}
+          <Button component={Link} to="/products/new" variant="contained">
+            상품 등록
+          </Button>
         </Stack>
       </Stack>
 
@@ -191,45 +175,27 @@ export default function ProductListPage() {
         <Grid container spacing={2}>
           {products.map((product) => {
             const status = statusMeta(PRODUCT_STATUS, product.status)
-            const groupBuyId = groupBuyIdsByProductId[product.id]
-            const linkTo = groupBuyId ? `/group-buys/${groupBuyId}` : `/products/${product.id}`
             return (
               <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
                 <Card variant="outlined">
-                  <CardActionArea component={Link} to={linkTo}>
-                    <Box sx={{ position: 'relative' }}>
-                      {product.imageUrl ? (
-                        <CardMedia component="img" height={160} image={product.imageUrl} alt={product.name} />
-                      ) : (
-                        <Box
-                          sx={{
-                            height: 160,
-                            bgcolor: 'grey.200',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <Typography variant="body2" color="text.secondary">
-                            이미지 없음
-                          </Typography>
-                        </Box>
-                      )}
-                      {groupBuyId && (
-                        <Chip
-                          size="small"
-                          label="공동구매 진행중"
-                          sx={{
-                            position: 'absolute',
-                            top: 8,
-                            left: 8,
-                            bgcolor: 'secondary.main',
-                            color: '#fff',
-                            fontWeight: 700,
-                          }}
-                        />
-                      )}
-                    </Box>
+                  <CardActionArea component={Link} to={`/products/${product.id}`}>
+                    {product.imageUrl ? (
+                      <CardMedia component="img" height={160} image={product.imageUrl} alt={product.name} />
+                    ) : (
+                      <Box
+                        sx={{
+                          height: 160,
+                          bgcolor: 'grey.200',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Typography variant="body2" color="text.secondary">
+                          이미지 없음
+                        </Typography>
+                      </Box>
+                    )}
                     <CardContent>
                       <Typography variant="subtitle1" fontWeight={600} noWrap>
                         {product.name}
@@ -244,7 +210,7 @@ export default function ProductListPage() {
                         <Chip label={status.label} color={status.color} size="small" />
                       </Stack>
                       <Typography variant="caption" color="text.secondary">
-                        판매자: {product.sellerName ?? '-'}
+                        재고 {product.stock}개
                       </Typography>
                     </CardContent>
                   </CardActionArea>
