@@ -3,6 +3,8 @@ package com.gachisa.auth.service;
 import com.gachisa.auth.client.KakaoOAuthClient;
 import com.gachisa.auth.client.NaverOAuthClient;
 import com.gachisa.auth.client.OAuthUserInfo;
+import com.gachisa.auth.dto.LoginResult;
+import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.security.JwtProperties;
 import com.gachisa.global.security.JwtTokenProvider;
 import com.gachisa.user.dto.UserInfo;
@@ -52,7 +54,7 @@ public class AuthService {
         return issueTokens(userInfo);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = CustomException.class)
     public LoginResult reissue(String rawRefreshToken) {
         UserInfo userInfo = refreshTokenService.rotate(rawRefreshToken);
         return issueTokens(userInfo);
@@ -69,11 +71,4 @@ public class AuthService {
         long expiresIn = jwtProperties.accessTokenValidity().toSeconds();
         return new LoginResult(accessToken, TOKEN_TYPE, expiresIn, rawRefreshToken);
     }
-
-    public record LoginResult(
-        String accessToken,
-        String tokenType,
-        Long expiresIn,
-        String rawRefreshToken
-    ) {}
 }
