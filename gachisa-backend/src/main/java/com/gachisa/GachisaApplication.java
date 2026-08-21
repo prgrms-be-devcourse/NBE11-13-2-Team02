@@ -14,3 +14,4 @@ public class GachisaApplication {
         SpringApplication.run(GachisaApplication.class, args);
     }
 }
+

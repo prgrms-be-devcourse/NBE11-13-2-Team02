@@ -37,7 +37,7 @@ public class GroupBuyController {
             .body(ApiResponse.created("공동구매가 생성되었습니다.", response));
     }
 
-    /** GB-02. 인증 불필요 - 전체 공개, 필터 없이 기본 목록 */
+    /** GB-02. 인증 불필요 - 필터 없는 기본 목록 */
     @GetMapping
     public ApiResponse<Page<GroupBuyResponse>> list(
         @RequestParam(required = false) GroupBuyStatus status,
@@ -45,12 +45,14 @@ public class GroupBuyController {
         @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<GroupBuyResponse> result = groupBuyService.getGroupBuyList(
-            status, null, null, null, null, null, pageable);
+        Page<GroupBuyResponse> result = groupBuyService.getGroupBuyList(status, pageable);
         return ApiResponse.ok("공동구매 목록을 조회했습니다.", result);
     }
 
-
+    /**
+     * 검색 전용 엔드포인트.
+     * 가격 필터/정렬은 할인가(basePrice - basePrice*discountRate) 기준으로 DB에서 직접 계산한다.
+     */
     @GetMapping("/search")
     public ApiResponse<Page<GroupBuyResponse>> search(
         @RequestParam(required = false) GroupBuyStatus status,
@@ -63,7 +65,7 @@ public class GroupBuyController {
         @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<GroupBuyResponse> result = groupBuyService.getGroupBuyList(
+        Page<GroupBuyResponse> result = groupBuyService.searchGroupBuy(
             status, keyword, categoryId, minPrice, maxPrice, sort, pageable);
         return ApiResponse.ok("공동구매 검색 결과를 조회했습니다.", result);
     }
