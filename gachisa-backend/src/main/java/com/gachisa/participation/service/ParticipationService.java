@@ -3,6 +3,7 @@ package com.gachisa.participation.service;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.groupbuy.entity.GroupBuy;
+import com.gachisa.groupbuy.entity.GroupBuyStatus;
 import com.gachisa.groupbuy.service.GroupBuyService;
 import com.gachisa.participation.dto.ParticipationCountResponse;
 import com.gachisa.participation.dto.ParticipationCreateRequest;
@@ -14,6 +15,8 @@ import com.gachisa.participation.repository.ParticipationRepository;
 import com.gachisa.user.entity.User;
 import com.gachisa.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ParticipationService {
+
+    private static final List<ParticipationStatus> ACTIVE_STATUSES =
+            List.of(ParticipationStatus.PARTICIPATING, ParticipationStatus.CONFIRMED);
 
     private final ParticipationRepository participationRepository;
     private final GroupBuyService groupBuyService;
@@ -51,6 +57,17 @@ public class ParticipationService {
         // 1) 비관적 락으로 정원을 예약 (동시성 제어 핵심 지점)
         GroupBuy groupBuy = groupBuyService.reserveSlots(groupBuyId, request.getQuantity());
 
+        // 같은 사용자가 새로고침·뒤로가기로 다시 요청하면 새 참여를 만들지 않는다.
+        // 정원 락을 획득한 뒤 조회하므로 동시 요청도 순서대로 같은 참여를 반환한다.
+        Participation existingParticipation = participationRepository
+                .findFirstByGroupBuy_IdAndUser_IdAndStatusInOrderByIdDesc(
+                        groupBuyId, userId, ACTIVE_STATUSES)
+                .orElse(null);
+        if (existingParticipation != null) {
+            groupBuy.release(request.getQuantity());
+            return ParticipationResponse.from(existingParticipation);
+        }
+
         // 2) 참여 레코드 생성 (초기 상태: 참여중)
         Participation participation = Participation.builder()
                 .groupBuy(groupBuy)
@@ -75,6 +92,12 @@ public class ParticipationService {
                 .orElseThrow(() -> new CustomException(ErrorCode.PARTICIPATION_NOT_FOUND));
 
         if (!participation.isCancelable()) {
+            throw new CustomException(ErrorCode.PARTICIPATION_NOT_CANCELABLE);
+        }
+
+        GroupBuy groupBuy = participation.getGroupBuy();
+        if (groupBuy.getStatus() != GroupBuyStatus.RECRUITING
+                || groupBuy.isDeadlinePassed(LocalDateTime.now())) {
             throw new CustomException(ErrorCode.PARTICIPATION_NOT_CANCELABLE);
         }
 
@@ -137,6 +160,11 @@ public class ParticipationService {
         }
         if (participation.getStatus() != ParticipationStatus.CONFIRMED) {
             throw new CustomException(ErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        GroupBuy groupBuy = participation.getGroupBuy();
+        if (groupBuy.getStatus() == GroupBuyStatus.RECRUITING
+                && !groupBuy.isDeadlinePassed(LocalDateTime.now())) {
+            groupBuyService.releaseSlots(groupBuy.getId(), participation.getQuantity());
         }
         participation.refund();
     }

@@ -146,6 +146,13 @@ public class PaymentService {
         }
     }
 
+    public PaymentResponse confirmPaymentByPgOrderId(Long userId, PaymentConfirmRequest request) {
+        Long paymentAttemptId = paymentAttemptRepository.findByPgOrderId(request.pgOrderId())
+                .map(PaymentAttempt::getId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ATTEMPT_NOT_FOUND));
+        return confirmPayment(paymentAttemptId, userId, request);
+    }
+
     @Transactional(readOnly = true)
     public PaymentResponse getPayment(Long paymentId, Long userId) {
         Payment payment = getPayment(paymentId);
@@ -153,6 +160,19 @@ public class PaymentService {
         validateOwner(participation, userId);
         PaymentAttempt attempt = paymentAttemptRepository.findFirstByPaymentIdOrderByCreatedAtDesc(paymentId)
                 .orElse(null);
+        Long orderId = payment.getStatus() == PaymentStatus.PAID
+                ? orderService.getOrderIdByParticipationId(payment.getParticipationId())
+                : null;
+        return PaymentResponse.from(payment, attempt, orderId);
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentResponse getPaymentByPgOrderId(String pgOrderId, Long userId) {
+        PaymentAttempt attempt = paymentAttemptRepository.findByPgOrderId(pgOrderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ATTEMPT_NOT_FOUND));
+        Payment payment = getPayment(attempt.getPaymentId());
+        ParticipationPaymentInfo participation = participationService.getPaymentInfo(payment.getParticipationId());
+        validateOwner(participation, userId);
         Long orderId = payment.getStatus() == PaymentStatus.PAID
                 ? orderService.getOrderIdByParticipationId(payment.getParticipationId())
                 : null;

@@ -19,7 +19,7 @@ const emptyForm = {
   address: '', addressDetail: '', deliveryRequest: '',
 }
 
-export default function SavedDeliveryAddressManager() {
+export default function SavedDeliveryAddressManager({ onSaved }) {
   const [addresses, setAddresses] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -37,9 +37,11 @@ export default function SavedDeliveryAddressManager() {
     try {
       if (editingId) await updateSavedDeliveryAddress(editingId, form)
       else await createSavedDeliveryAddress(form)
+      const wasCreating = !editingId
       setForm(emptyForm)
       setEditingId(null)
       await load()
+      if (wasCreating) onSaved?.()
     } catch (requestError) {
       setError(requestError.response?.data?.message ?? '배송지를 저장하지 못했습니다.')
     }

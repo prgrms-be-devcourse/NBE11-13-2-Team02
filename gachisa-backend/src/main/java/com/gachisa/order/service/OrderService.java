@@ -16,6 +16,7 @@ import com.gachisa.order.repository.OrderRepository;
 import com.gachisa.product.dto.ProductResponse;
 import com.gachisa.product.service.ProductService;
 import java.time.LocalDateTime;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -46,6 +47,7 @@ public class OrderService {
         ProductResponse product = productService.getProduct(groupBuy.productId());
         LocalDateTime now = timeProvider.now();
         Order order = Order.builder()
+                .orderNumber(createOrderNumber())
                 .participationId(command.participationId())
                 .paymentId(command.paymentId())
                 .buyerId(command.buyerId())
@@ -69,14 +71,21 @@ public class OrderService {
                 Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
                 Sort.by(Sort.Direction.DESC, "createdAt")
         );
-        Page<Order> orders = orderRepository.findAllByBuyerIdAndDeliveryStatusNot(
-                buyerId, DeliveryStatus.CANCELLED, pageable);
+        Page<Order> orders = orderRepository.findAllByBuyerId(buyerId, pageable);
         return OrderListResponse.from(orders);
     }
 
     @Transactional(readOnly = true)
     public OrderResponse getMyOrder(Long orderId, Long buyerId) {
         Order order = getOrder(orderId);
+        validateBuyer(order, buyerId);
+        return OrderResponse.from(order);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse getMyOrderByParticipation(Long participationId, Long buyerId) {
+        Order order = orderRepository.findByParticipationId(participationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
         validateBuyer(order, buyerId);
         return OrderResponse.from(order);
     }
@@ -113,8 +122,9 @@ public class OrderService {
     }
 
     @Transactional
-    public DeliveryResponse updateDeliveryStatusByAdmin(Long orderId, DeliveryStatus deliveryStatus) {
-        Order order = getOrder(orderId);
+    public DeliveryResponse updateDeliveryStatusByAdmin(String orderNumber, DeliveryStatus deliveryStatus) {
+        Order order = orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new CustomException(ErrorCode.ORDER_NOT_FOUND));
         order.changeDeliveryStatusByAdmin(deliveryStatus, timeProvider.now());
         return DeliveryResponse.from(order);
     }
@@ -148,5 +158,13 @@ public class OrderService {
         if (!order.getBuyerId().equals(buyerId)) {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
+    }
+
+    private String createOrderNumber() {
+        String orderNumber;
+        do {
+            orderNumber = String.format("%09d", ThreadLocalRandom.current().nextInt(1, 1_000_000_000));
+        } while (orderRepository.existsByOrderNumber(orderNumber));
+        return orderNumber;
     }
 }

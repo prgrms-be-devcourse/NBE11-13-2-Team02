@@ -30,4 +30,16 @@ export const confirmPayment = (paymentAttemptId, paymentKey, pgOrderId, amount) 
     amount,
   })
 
+export const confirmPaymentByPgOrderId = (paymentKey, pgOrderId, amount) =>
+  axiosInstance.post('/payments/confirm', { paymentKey, pgOrderId, amount })
+
 export const getPayment = (paymentId) => axiosInstance.get(`/payments/${paymentId}`)
+
+export const getPaymentByPgOrderId = (pgOrderId) =>
+  axiosInstance.get(`/payments/pg-orders/${pgOrderId}`)
+
+export const cancelUnpaidParticipation = (participationId) =>
+  axiosInstance.post(`/participations/${participationId}/cancel`)
+
+export const getRefundStatus = (participationId) =>
+  axiosInstance.get(`/participations/${participationId}/refund`)

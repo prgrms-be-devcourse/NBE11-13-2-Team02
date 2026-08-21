@@ -219,6 +219,45 @@ class PaymentServiceTest {
         verify(confirmationStateService, never()).fail(2L, ErrorCode.PAYMENT_GATEWAY_UNAVAILABLE);
     }
 
+    @Test
+    void paymentCanBeRecoveredByPgOrderIdWithoutBrowserStorage() {
+        Payment payment = payment();
+        PaymentAttempt attempt = attempt(PaymentMethod.CARD);
+        given(attemptRepository.findByPgOrderId("gachisa_order")).willReturn(Optional.of(attempt));
+        given(paymentRepository.findById(1L)).willReturn(Optional.of(payment));
+        given(participationService.getPaymentInfo(PARTICIPATION_ID)).willReturn(paymentInfo());
+
+        PaymentResponse response = paymentService.getPaymentByPgOrderId("gachisa_order", USER_ID);
+
+        assertThat(response.paymentAttemptId()).isEqualTo(2L);
+        assertThat(response.amount()).isEqualTo(12_600);
+    }
+
+    @Test
+    void anotherUserCannotRecoverPaymentByPgOrderId() {
+        Payment payment = payment();
+        PaymentAttempt attempt = attempt(PaymentMethod.CARD);
+        given(attemptRepository.findByPgOrderId("gachisa_order")).willReturn(Optional.of(attempt));
+        given(paymentRepository.findById(1L)).willReturn(Optional.of(payment));
+        given(participationService.getPaymentInfo(PARTICIPATION_ID)).willReturn(paymentInfo());
+
+        assertThatThrownBy(() -> paymentService.getPaymentByPgOrderId("gachisa_order", 999L))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.FORBIDDEN);
+    }
+
+    @Test
+    void unknownPgOrderIdCannotBeConfirmed() {
+        PaymentConfirmRequest request = new PaymentConfirmRequest("payment-key", "unknown-order", 12_600);
+        given(attemptRepository.findByPgOrderId("unknown-order")).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.confirmPaymentByPgOrderId(USER_ID, request))
+                .isInstanceOf(CustomException.class)
+                .extracting(exception -> ((CustomException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.PAYMENT_ATTEMPT_NOT_FOUND);
+    }
+
     private void mockPaymentInfo() {
         given(participationService.getPaymentInfo(PARTICIPATION_ID)).willReturn(paymentInfo());
         given(amountCalculator.calculate(paymentInfo())).willReturn(12_600);

@@ -22,7 +22,7 @@ public enum ErrorCode {
 
     // Participation
     PARTICIPATION_NOT_FOUND(HttpStatus.NOT_FOUND, "참여 내역을 찾을 수 없습니다."),
-    PARTICIPATION_NOT_CANCELABLE(HttpStatus.CONFLICT, "참여중 상태에서만 취소할 수 있습니다. 확정 이후에는 환불을 이용하세요."),
+    PARTICIPATION_NOT_CANCELABLE(HttpStatus.CONFLICT, "공동구매 마감 전 참여중 상태에서만 취소할 수 있습니다. 마감 또는 확정 이후에는 환불을 이용하세요."),
     INVALID_QUANTITY(HttpStatus.BAD_REQUEST, "참여 수량은 1 이상이어야 합니다."),
 
     // Queue

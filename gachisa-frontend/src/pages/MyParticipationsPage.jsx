@@ -12,23 +12,27 @@ import Tab from '@mui/material/Tab'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import PersonIcon from '@mui/icons-material/Person'
 import { getMyParticipations } from '../api/participationApi'
+import { getMyOrders } from '../api/orderApi'
+import { getRefundStatus } from '../api/paymentApi.js'
 import { getErrorMessage } from '../api/errorMessage'
 import { useAuth } from '../context/AuthContext.jsx'
 import LoadingScreen from '../components/LoadingScreen.jsx'
-import { PARTICIPATION_STATUS, formatDateTime, statusMeta } from '../utils/statusMeta'
+import { DELIVERY_STATUS, PARTICIPATION_STATUS, formatDateTime, formatPrice, statusMeta } from '../utils/statusMeta'
 
 const TABS = [
+  { value: 'ALL', label: '전체' },
   { value: 'PARTICIPATING', label: '참여중' },
   { value: 'CONFIRMED', label: '확정' },
-  { value: 'REFUNDED', label: '환불됨' },
   { value: 'CANCELLED', label: '취소됨' },
 ]
 
 export default function MyParticipationsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('PARTICIPATING')
+  const [tab, setTab] = useState('ALL')
   const [participations, setParticipations] = useState([])
+  const [ordersByParticipation, setOrdersByParticipation] = useState({})
+  const [refundsByParticipation, setRefundsByParticipation] = useState({})
   const [stats, setStats] = useState({ total: null, confirmed: null })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -36,8 +40,45 @@ export default function MyParticipationsPage() {
   const load = useCallback(() => {
     setLoading(true)
     setError('')
-    return getMyParticipations({ status: tab, page: 0, size: 50 })
-      .then(({ data }) => setParticipations(data.content ?? []))
+    const participationRequest = tab === 'CANCELLED'
+      ? Promise.all([
+          getMyParticipations({ status: 'CANCELLED', page: 0, size: 50 }),
+          getMyParticipations({ status: 'REFUNDED', page: 0, size: 50 }),
+        ]).then(([cancelled, refunded]) => [
+          ...(cancelled.data.content ?? []),
+          ...(refunded.data.content ?? []),
+        ].sort((a, b) => new Date(b.participatedAt) - new Date(a.participatedAt)))
+      : getMyParticipations({
+          status: tab === 'ALL' ? undefined : tab,
+          page: 0,
+          size: 50,
+        }).then(({ data }) => data.content ?? [])
+
+    return Promise.all([participationRequest, getMyOrders({ page: 0, size: 100 })])
+      .then(async ([items, ordersResponse]) => {
+        const orderMap = Object.fromEntries(
+          (ordersResponse.data.content ?? []).map((order) => [order.participationId, order]),
+        )
+        const refundEntries = await Promise.all(
+          items
+            .filter((item) => item.status === '확정' && orderMap[item.participationId])
+            .map(async (item) => {
+              try {
+                const { data } = await getRefundStatus(item.participationId)
+                return [item.participationId, data]
+              } catch (requestError) {
+                if (requestError.response?.status === 404) return null
+                throw requestError
+              }
+            }),
+        )
+        // 결제 승인과 주문 생성 없이 결제창만 닫은 임시 참여는 사용자 이력에서 제외한다.
+        setParticipations(items.filter((item) =>
+          !['취소됨', '환불됨'].includes(item.status) || orderMap[item.participationId],
+        ))
+        setOrdersByParticipation(orderMap)
+        setRefundsByParticipation(Object.fromEntries(refundEntries.filter(Boolean)))
+      })
       .catch((err) => setError(getErrorMessage(err, '참여 이력을 불러오지 못했습니다.')))
       .finally(() => setLoading(false))
   }, [tab])
@@ -46,13 +87,30 @@ export default function MyParticipationsPage() {
     load()
   }, [load])
 
+  const hasProcessingRefund = Object.values(refundsByParticipation).some((refund) =>
+    ['REFUND_PENDING', 'PROCESSING'].includes(refund.status),
+  )
+
+  useEffect(() => {
+    if (!hasProcessingRefund) return undefined
+    const timerId = window.setInterval(load, 2000)
+    return () => window.clearInterval(timerId)
+  }, [hasProcessingRefund, load])
+
   useEffect(() => {
     Promise.all([
-      getMyParticipations({ page: 0, size: 1 }),
       getMyParticipations({ status: 'CONFIRMED', page: 0, size: 1 }),
+      getMyParticipations({ page: 0, size: 100 }),
+      getMyOrders({ page: 0, size: 100 }),
     ])
-      .then(([totalRes, confirmedRes]) => {
-        setStats({ total: totalRes.data.totalElements, confirmed: confirmedRes.data.totalElements })
+      .then(([confirmedRes, allRes, ordersRes]) => {
+        const orderParticipationIds = new Set(
+          (ordersRes.data.content ?? []).map((order) => order.participationId),
+        )
+        const visibleTotal = (allRes.data.content ?? []).filter((item) =>
+          !['취소됨', '환불됨'].includes(item.status) || orderParticipationIds.has(item.participationId),
+        ).length
+        setStats({ total: visibleTotal, confirmed: confirmedRes.data.totalElements })
       })
       .catch(() => {})
   }, [])
@@ -102,6 +160,9 @@ export default function MyParticipationsPage() {
           <Stack spacing={1.5} sx={{ mt: 2 }}>
             {participations.map((p) => {
               const meta = statusMeta(PARTICIPATION_STATUS, p.status)
+              const order = ordersByParticipation[p.participationId]
+              const refund = refundsByParticipation[p.participationId]
+              const deliveryMeta = order ? statusMeta(DELIVERY_STATUS, order.deliveryStatus) : null
               return (
                 <Stack
                   key={p.participationId}
@@ -112,8 +173,8 @@ export default function MyParticipationsPage() {
                     p: 1.5,
                     borderRadius: 2,
                     border: '1px solid',
-                    borderColor: tab === 'PARTICIPATING' ? 'primary.main' : '#ECEEF5',
-                    bgcolor: tab === 'PARTICIPATING' ? 'primary.light' : 'transparent',
+                    borderColor: '#ECEEF5',
+                    bgcolor: 'background.paper',
                     cursor: 'pointer',
                     gap: 2,
                     '&:hover': { borderColor: 'primary.main' },
@@ -139,10 +200,24 @@ export default function MyParticipationsPage() {
                       {p.productName}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {p.quantity}개 · {formatDateTime(p.participatedAt)}
+                      {formatDateTime(p.participatedAt)}
                     </Typography>
+                    {order && (
+                      <Typography variant="body2" color="text.secondary">
+                        결제 {formatPrice(order.amount)}
+                      </Typography>
+                    )}
                   </Box>
-                  <Chip size="small" label={meta.label} color={meta.color} />
+                  <Stack spacing={0.5} alignItems="flex-end">
+                    {refund && ['REFUND_PENDING', 'PROCESSING'].includes(refund.status) ? (
+                      <Chip size="small" label="환불 처리중" color="warning" />
+                    ) : refund && ['FAILED', 'RETRY_EXHAUSTED'].includes(refund.status) ? (
+                      <Chip size="small" label="환불 실패" color="error" />
+                    ) : (
+                      <Chip size="small" label={meta.label} color={meta.color} />
+                    )}
+                    {deliveryMeta && <Chip size="small" variant="outlined" label={deliveryMeta.label} color={deliveryMeta.color} />}
+                  </Stack>
                 </Stack>
               )
             })}

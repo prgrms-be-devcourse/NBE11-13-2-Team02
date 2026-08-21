@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -20,6 +21,9 @@ const ROLE_LABEL = {
 }
 
 export default function MyPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo')
   const { user, refreshUser } = useAuth()
   const [name, setName] = useState(user?.name ?? '')
   const [showPasswordForm, setShowPasswordForm] = useState(false)
@@ -139,7 +143,7 @@ export default function MyPage() {
           </Stack>
         </Box>
       </Paper>
-      <SavedDeliveryAddressManager />
+      <SavedDeliveryAddressManager onSaved={returnTo ? () => navigate(returnTo) : undefined} />
     </Box>
   )
 }

@@ -16,8 +16,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByPaymentId(Long paymentId);
 
+    Optional<Order> findByOrderNumber(String orderNumber);
+
+    boolean existsByOrderNumber(String orderNumber);
+
     Page<Order> findAllByBuyerIdAndDeliveryStatusNot(
             Long buyerId, com.gachisa.order.entity.DeliveryStatus deliveryStatus, Pageable pageable);
+
+    Page<Order> findAllByBuyerId(Long buyerId, Pageable pageable);
 
     @Modifying(clearAutomatically = true)
     @Query("""

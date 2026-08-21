@@ -20,7 +20,7 @@ public class TossWebhookController {
 
     @PostMapping("/payments")
     public TossWebhookResponse paymentStatusChanged(
-            @RequestHeader("tosspayments-webhook-transmission-id") String transmissionId,
+            @RequestHeader(value = "tosspayments-webhook-transmission-id", required = false) String transmissionId,
             @Valid @RequestBody TossPaymentWebhookRequest request
     ) {
         return tossWebhookService.process(transmissionId, request);
