@@ -26,21 +26,21 @@ public class AuthController {
 
     @PostMapping("/login")
     public LoginResponse login(@RequestBody LoginRequest request, HttpServletResponse response) {
-        AuthService.LoginResult result = authService.login(request.email(), request.password());
+        LoginResult result = authService.login(request.email(), request.password());
         setRefreshCookie(response, result.rawRefreshToken());
         return new LoginResponse(result.accessToken(), result.tokenType(), result.expiresIn());
     }
 
     @PostMapping("/oauth/kakao")
     public LoginResponse loginWithKakao(@RequestBody OAuthLoginRequest request, HttpServletResponse response) {
-        AuthService.LoginResult result = authService.loginWithKakao(request.code(), request.redirectUri());
+        LoginResult result = authService.loginWithKakao(request.code(), request.redirectUri());
         setRefreshCookie(response, result.rawRefreshToken());
         return new LoginResponse(result.accessToken(), result.tokenType(), result.expiresIn());
     }
 
     @PostMapping("/oauth/naver")
     public LoginResponse loginWithNaver(@RequestBody OAuthLoginRequest request, HttpServletResponse response) {
-        AuthService.LoginResult result = authService.loginWithNaver(request.code(), request.redirectUri(), request.state());
+        LoginResult result = authService.loginWithNaver(request.code(), request.redirectUri(), request.state());
         setRefreshCookie(response, result.rawRefreshToken());
         return new LoginResponse(result.accessToken(), result.tokenType(), result.expiresIn());
     }
@@ -48,7 +48,7 @@ public class AuthController {
     @PostMapping("/reissue")
     public ReissueResponse reissue(@CookieValue(REFRESH_COOKIE_NAME) String rawRefreshToken,
                                    HttpServletResponse response) {
-        AuthService.LoginResult result = authService.reissue(rawRefreshToken);
+        LoginResult result = authService.reissue(rawRefreshToken);
         setRefreshCookie(response, result.rawRefreshToken());
         return new ReissueResponse(result.accessToken(), result.tokenType(), result.expiresIn());
     }
