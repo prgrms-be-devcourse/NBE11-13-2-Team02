@@ -3,6 +3,7 @@ package com.gachisa.payment.repository;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.entity.PaymentStatus;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +26,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     void insertReadyIfAbsent(
             @Param("participationId") Long participationId,
             @Param("amount") int amount,
-            @Param("createdAt") java.time.LocalDateTime createdAt
+            @Param("createdAt") LocalDateTime createdAt
     );
 
     List<Payment> findAllByParticipationIdIn(Collection<Long> participationIds);

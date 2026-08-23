@@ -41,7 +41,7 @@ public class PaymentCancellationService {
             throw new CustomException(ErrorCode.FORBIDDEN);
         }
 
-        Payment payment = paymentRepository.findByParticipationId(participationId).orElse(null);
+        Payment payment = paymentRepository.findByParticipationIdForUpdate(participationId).orElse(null);
         if (payment == null || payment.getStatus() == PaymentStatus.READY) {
             if (payment != null) {
                 PaymentAttempt activeAttempt = paymentAttemptRepository

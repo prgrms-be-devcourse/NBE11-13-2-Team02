@@ -8,7 +8,7 @@ import com.gachisa.global.util.TimeProvider;
 import com.gachisa.order.service.OrderService;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
-import com.gachisa.payment.client.PgClient.PgCancellationResult;
+import com.gachisa.payment.client.dto.PgCancellationResult;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.entity.PaymentAttempt;
 import com.gachisa.payment.entity.PaymentAttemptStatus;
@@ -63,6 +63,7 @@ class RefundCompletionServiceTest {
         Refund refund = pendingRefund();
         given(refundRepository.findById(REFUND_ID)).willReturn(Optional.of(refund));
         given(paymentRepository.findByIdForUpdate(PAYMENT_ID)).willReturn(Optional.of(payment));
+        given(refundRepository.findByIdForUpdate(REFUND_ID)).willReturn(Optional.of(refund));
         given(attemptRepository.findFirstByPaymentIdAndStatusOrderByCreatedAtDesc(
                 PAYMENT_ID, PaymentAttemptStatus.PAID)).willReturn(Optional.of(attempt));
         given(timeProvider.now()).willReturn(NOW);

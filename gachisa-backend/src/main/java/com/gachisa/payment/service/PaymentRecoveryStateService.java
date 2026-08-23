@@ -8,7 +8,7 @@ import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.order.dto.OrderCreateCommand;
 import com.gachisa.order.dto.OrderResponse;
 import com.gachisa.order.service.OrderService;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.dto.PaymentResponse;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.entity.PaymentAttempt;
@@ -16,6 +16,7 @@ import com.gachisa.payment.entity.PaymentAttemptStatus;
 import com.gachisa.payment.entity.PaymentStatus;
 import com.gachisa.payment.repository.PaymentAttemptRepository;
 import com.gachisa.payment.repository.PaymentRepository;
+import com.gachisa.payment.service.dto.RecoveryPreparation;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -145,7 +146,7 @@ public class PaymentRecoveryStateService {
     }
 
     private PaymentAndAttempt getForUpdate(Long attemptId) {
-        Long paymentId = paymentAttemptRepository.findPaymentIdById(attemptId)
+        Long paymentId = paymentAttemptRepository.findPaymentIdByAttemptId(attemptId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ATTEMPT_NOT_FOUND));
         Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
@@ -157,21 +158,4 @@ public class PaymentRecoveryStateService {
     private record PaymentAndAttempt(Payment payment, PaymentAttempt attempt) {
     }
 
-    public record RecoveryPreparation(
-            Long paymentAttemptId,
-            String paymentKey,
-            boolean queryRequired,
-            PaymentResponse existingResponse
-    ) {
-
-        private static RecoveryPreparation query(PaymentAttempt attempt) {
-            return new RecoveryPreparation(attempt.getId(), attempt.getPgPaymentKey(), true, null);
-        }
-
-        private static RecoveryPreparation skip(Payment payment, PaymentAttempt attempt) {
-            return new RecoveryPreparation(
-                    attempt.getId(), attempt.getPgPaymentKey(), false,
-                    PaymentResponse.from(payment, attempt));
-        }
-    }
 }

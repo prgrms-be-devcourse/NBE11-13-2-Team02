@@ -7,8 +7,8 @@ import com.gachisa.order.service.OrderService;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.payment.client.PgClient;
-import com.gachisa.payment.client.PgClient.PgConfirmationResult;
-import com.gachisa.payment.service.PaymentConfirmationStateService.ConfirmationPreparation;
+import com.gachisa.payment.client.dto.PgConfirmationResult;
+import com.gachisa.payment.service.dto.ConfirmationPreparation;
 import com.gachisa.payment.dto.PaymentConfirmRequest;
 import com.gachisa.payment.dto.PaymentRequest;
 import com.gachisa.payment.dto.PaymentResponse;
@@ -21,6 +21,7 @@ import com.gachisa.payment.repository.PaymentRepository;
 import com.gachisa.queue.service.QueueService;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -82,7 +83,12 @@ public class PaymentService {
         }
 
         validateNewAttemptAllowed(payment);
-        PaymentAttempt activeAttempt = paymentAttemptRepository.findFirstByPaymentIdAndStatusInOrderByCreatedAtDesc(payment.getId(), java.util.List.of(PaymentAttemptStatus.READY, PaymentAttemptStatus.PROCESSING)).orElse(null);
+        PaymentAttempt activeAttempt = paymentAttemptRepository
+                .findFirstByPaymentIdAndStatusInOrderByCreatedAtDesc(
+                        payment.getId(),
+                        List.of(PaymentAttemptStatus.READY, PaymentAttemptStatus.PROCESSING)
+                )
+                .orElse(null);
         if (activeAttempt != null) {
             if (activeAttempt.getStatus() == PaymentAttemptStatus.PROCESSING) {
                 throw new CustomException(ErrorCode.PAYMENT_ATTEMPT_IN_PROGRESS);

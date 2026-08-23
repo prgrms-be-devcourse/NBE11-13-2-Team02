@@ -11,7 +11,7 @@ import com.gachisa.order.service.OrderService;
 import com.gachisa.order.dto.OrderCreateCommand;
 import com.gachisa.order.dto.OrderResponse;
 import com.gachisa.order.entity.DeliveryStatus;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.entity.PaymentAttempt;
 import com.gachisa.payment.entity.PaymentAttemptStatus;
@@ -19,6 +19,7 @@ import com.gachisa.payment.entity.PaymentMethod;
 import com.gachisa.payment.entity.PaymentStatus;
 import com.gachisa.payment.repository.PaymentAttemptRepository;
 import com.gachisa.payment.repository.PaymentRepository;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +60,8 @@ class PaymentRecoveryStateServiceTest {
         given(orderService.createOrderIfAbsent(
                 new OrderCreateCommand(10L, 1L, 20L, 30L, 1, 12_600)))
                 .willReturn(new OrderResponse(
-                        100L, "018330029", 10L, 1L, 30L, 40L, "공동구매 상품", null, 1, 12_600, false,
+                        100L, "018330029", 10L, 1L, 30L, 40L, "공동구매 상품", null, 1,
+                        7_875, new BigDecimal("0.20"), 3_150, 12_600, false,
                         DeliveryStatus.WAITING_FOR_GROUP_BUY, NOW, NOW));
 
         var response = stateService.apply(2L, result("DONE"));
@@ -100,7 +102,7 @@ class PaymentRecoveryStateServiceTest {
     }
 
     private void mockLocked(Payment payment, PaymentAttempt attempt) {
-        given(attemptRepository.findPaymentIdById(2L)).willReturn(Optional.of(1L));
+        given(attemptRepository.findPaymentIdByAttemptId(2L)).willReturn(Optional.of(1L));
         given(paymentRepository.findByIdForUpdate(1L)).willReturn(Optional.of(payment));
         given(attemptRepository.findByIdForUpdate(2L)).willReturn(Optional.of(attempt));
     }

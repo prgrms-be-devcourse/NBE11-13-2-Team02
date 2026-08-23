@@ -19,7 +19,7 @@ public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt, 
     Optional<PaymentAttempt> findByPgOrderId(String pgOrderId);
 
     @Query("select pa.paymentId from PaymentAttempt pa where pa.id = :attemptId")
-    Optional<Long> findPaymentIdById(@Param("attemptId") Long attemptId);
+    Optional<Long> findPaymentIdByAttemptId(@Param("attemptId") Long attemptId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select pa from PaymentAttempt pa where pa.id = :attemptId")
@@ -30,6 +30,7 @@ public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt, 
     Optional<PaymentAttempt> findFirstByPaymentIdAndStatusOrderByCreatedAtDesc(
             Long paymentId, PaymentAttemptStatus status);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PaymentAttempt> findFirstByPaymentIdAndStatusInOrderByCreatedAtDesc(
             Long paymentId, Collection<PaymentAttemptStatus> statuses);
 

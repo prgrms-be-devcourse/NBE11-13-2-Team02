@@ -5,12 +5,12 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.gachisa.payment.client.PgClient;
-import com.gachisa.payment.client.PgClient.PgCancellationResult;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
+import com.gachisa.payment.client.dto.PgCancellationResult;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.dto.RefundResponse;
 import com.gachisa.payment.entity.PaymentMethod;
 import com.gachisa.payment.entity.RefundStatus;
-import com.gachisa.payment.service.RefundStateService.RefundRecoveryTarget;
+import com.gachisa.payment.service.dto.RefundRecoveryTarget;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

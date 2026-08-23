@@ -237,5 +237,7 @@ INSERT INTO payment (participation_id, amount, status, created_at, updated_at, p
 
 INSERT INTO order_table
 (order_number, participation_id, payment_id, buyer_id, group_buy_id, product_id, product_name,
- quantity, amount, delivery_status, created_at, updated_at) VALUES
-('018330029', 3, 1, 2, 1, 1, '텀블러 6종 세트', 1, 12600, 'WAITING_FOR_GROUP_BUY', NOW(), NOW());
+ quantity, base_price, discount_rate, discount_amount, amount,
+ delivery_status, created_at, updated_at) VALUES
+('018330029', 3, 1, 2, 1, 1, '텀블러 6종 세트',
+ 1, 18000, 0.30, 5400, 12600, 'WAITING_FOR_GROUP_BUY', NOW(), NOW());

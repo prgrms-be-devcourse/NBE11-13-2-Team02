@@ -6,7 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.gachisa.global.util.TimeProvider;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.entity.PaymentMethod;
 import com.gachisa.payment.repository.TossWebhookEventRepository;
 import java.time.LocalDateTime;
@@ -39,7 +39,13 @@ class TossWebhookStateServiceTest {
 
     @Test
     void duplicateTransmissionIsIgnored() {
-        given(webhookEventRepository.existsByTransmissionId("transmission-id")).willReturn(true);
+        given(webhookEventRepository.insertIfAbsent(
+                ArgumentMatchers.eq("transmission-id"),
+                ArgumentMatchers.eq("PAYMENT_STATUS_CHANGED"),
+                ArgumentMatchers.eq("payment-key"),
+                ArgumentMatchers.any(LocalDateTime.class)
+        )).willReturn(0);
+        given(timeProvider.now()).willReturn(LocalDateTime.of(2026, 8, 14, 12, 0));
 
         boolean processed = stateService.apply(
                 "transmission-id", "PAYMENT_STATUS_CHANGED", queryResult());
@@ -51,7 +57,12 @@ class TossWebhookStateServiceTest {
     @Test
     void newTransmissionAppliesVerifiedStateAndStoresEvent() {
         PgPaymentQueryResult result = queryResult();
-        given(webhookEventRepository.existsByTransmissionId("transmission-id")).willReturn(false);
+        given(webhookEventRepository.insertIfAbsent(
+                ArgumentMatchers.eq("transmission-id"),
+                ArgumentMatchers.eq("PAYMENT_STATUS_CHANGED"),
+                ArgumentMatchers.eq("payment-key"),
+                ArgumentMatchers.any(LocalDateTime.class)
+        )).willReturn(1);
         given(recoveryStateService.findAttemptIdByPgOrderId("gachisa_order")).willReturn(1L);
         given(timeProvider.now()).willReturn(LocalDateTime.of(2026, 8, 14, 12, 0));
 
@@ -60,7 +71,6 @@ class TossWebhookStateServiceTest {
 
         assertThat(processed).isTrue();
         verify(recoveryStateService).apply(1L, result);
-        verify(webhookEventRepository).save(ArgumentMatchers.any());
     }
 
     private PgPaymentQueryResult queryResult() {

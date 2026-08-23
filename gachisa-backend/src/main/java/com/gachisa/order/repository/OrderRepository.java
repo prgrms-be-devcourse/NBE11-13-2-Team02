@@ -1,6 +1,7 @@
 package com.gachisa.order.repository;
 
 import com.gachisa.order.entity.Order;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,7 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import java.time.LocalDateTime;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
@@ -19,9 +19,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByOrderNumber(String orderNumber);
 
     boolean existsByOrderNumber(String orderNumber);
-
-    Page<Order> findAllByBuyerIdAndDeliveryStatusNot(
-            Long buyerId, com.gachisa.order.entity.DeliveryStatus deliveryStatus, Pageable pageable);
 
     Page<Order> findAllByBuyerId(Long buyerId, Pageable pageable);
 

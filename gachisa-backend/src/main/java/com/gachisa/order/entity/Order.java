@@ -10,6 +10,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -53,6 +54,15 @@ public class Order {
     private int quantity;
 
     @Column(nullable = false)
+    private int basePrice;
+
+    @Column(nullable = false, precision = 5, scale = 4)
+    private BigDecimal discountRate;
+
+    @Column(nullable = false)
+    private int discountAmount;
+
+    @Column(nullable = false)
     private int amount;
 
     @Enumerated(EnumType.STRING)
@@ -92,6 +102,7 @@ public class Order {
     @Builder
     private Order(String orderNumber, Long participationId, Long paymentId, Long buyerId, Long groupBuyId,
                   Long productId, String productName, String productImageUrl, int quantity, int amount,
+                  int basePrice, BigDecimal discountRate, int discountAmount,
                   DeliveryStatus deliveryStatus, LocalDateTime createdAt,
                   LocalDateTime updatedAt) {
         this.orderNumber = orderNumber;
@@ -103,6 +114,9 @@ public class Order {
         this.productName = productName;
         this.productImageUrl = productImageUrl;
         this.quantity = quantity;
+        this.basePrice = basePrice;
+        this.discountRate = discountRate;
+        this.discountAmount = discountAmount;
         this.amount = amount;
         this.deliveryStatus = deliveryStatus;
         this.createdAt = createdAt;

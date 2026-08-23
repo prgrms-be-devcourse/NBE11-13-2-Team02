@@ -2,9 +2,9 @@ package com.gachisa.payment.service;
 
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.payment.client.PgClient;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.dto.PaymentResponse;
-import com.gachisa.payment.service.PaymentRecoveryStateService.RecoveryPreparation;
+import com.gachisa.payment.service.dto.RecoveryPreparation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

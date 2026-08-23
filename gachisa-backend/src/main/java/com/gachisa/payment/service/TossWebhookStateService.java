@@ -1,8 +1,7 @@
 package com.gachisa.payment.service;
 
 import com.gachisa.global.util.TimeProvider;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
-import com.gachisa.payment.entity.TossWebhookEvent;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.repository.TossWebhookEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,18 +17,17 @@ public class TossWebhookStateService {
 
     @Transactional
     public boolean apply(String transmissionId, String eventType, PgPaymentQueryResult pgPayment) {
-        if (webhookEventRepository.existsByTransmissionId(transmissionId)) {
+        int inserted = webhookEventRepository.insertIfAbsent(
+                transmissionId,
+                eventType,
+                pgPayment.paymentKey(),
+                timeProvider.now()
+        );
+        if (inserted == 0) {
             return false;
         }
 
         recoveryStateService.apply(findAttemptId(pgPayment), pgPayment);
-
-        webhookEventRepository.save(TossWebhookEvent.builder()
-                .transmissionId(transmissionId)
-                .eventType(eventType)
-                .paymentKey(pgPayment.paymentKey())
-                .receivedAt(timeProvider.now())
-                .build());
         return true;
     }
 

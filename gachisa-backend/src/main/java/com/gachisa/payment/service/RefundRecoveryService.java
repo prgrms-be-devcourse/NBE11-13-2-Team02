@@ -3,10 +3,10 @@ package com.gachisa.payment.service;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.payment.client.PgClient;
-import com.gachisa.payment.client.PgClient.PgCancellationResult;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
+import com.gachisa.payment.client.dto.PgCancellationResult;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.dto.RefundResponse;
-import com.gachisa.payment.service.RefundStateService.RefundRecoveryTarget;
+import com.gachisa.payment.service.dto.RefundRecoveryTarget;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
