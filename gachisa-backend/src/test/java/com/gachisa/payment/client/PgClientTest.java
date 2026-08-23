@@ -10,8 +10,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
-import com.gachisa.payment.client.PgClient.PgConfirmationResult;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
+import com.gachisa.payment.client.config.TossRestClientConfig;
+import com.gachisa.payment.client.dto.PgCancellationResult;
+import com.gachisa.payment.client.dto.PgConfirmationResult;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.entity.PaymentMethod;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,9 +35,11 @@ class PgClientTest {
 
     @BeforeEach
     void setUp() {
-        RestClient.Builder builder = RestClient.builder();
+        String secretKey = "test_sk_secret";
+        RestClient.Builder builder = new TossRestClientConfig()
+                .configure(RestClient.builder(), BASE_URL, secretKey);
         server = MockRestServiceServer.bindTo(builder).build();
-        pgClient = new PgClient(builder, BASE_URL, "test_sk_secret");
+        pgClient = new PgClient(builder.build(), secretKey);
     }
 
     @Test
@@ -115,7 +119,7 @@ class PgClientTest {
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        PgClient.PgCancellationResult result = pgClient.cancel(
+        PgCancellationResult result = pgClient.cancel(
                 PAYMENT_KEY,
                 "공동구매 목표 인원 미달",
                 IDEMPOTENCY_KEY

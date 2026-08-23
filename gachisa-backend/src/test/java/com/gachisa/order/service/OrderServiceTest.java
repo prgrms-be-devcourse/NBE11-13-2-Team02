@@ -66,6 +66,9 @@ class OrderServiceTest {
         assertThat(response.productId()).isEqualTo(50L);
         assertThat(response.productName()).isEqualTo("공동구매 상품");
         assertThat(response.quantity()).isEqualTo(2);
+        assertThat(response.basePrice()).isEqualTo(7_875);
+        assertThat(response.discountRate()).isEqualByComparingTo("0.20");
+        assertThat(response.discountAmount()).isEqualTo(3_150);
         assertThat(response.amount()).isEqualTo(12_600);
         assertThat(response.groupBuyId()).isEqualTo(40L);
         assertThat(response.deliveryStatus()).isEqualTo(DeliveryStatus.WAITING_FOR_GROUP_BUY);
@@ -157,7 +160,7 @@ class OrderServiceTest {
     }
 
     @Test
-    void completesShippingOrdersAfterTwoDays() {
+    void deliveryScheduleUsesOneDayPreparationAndTwoDaysShipping() {
         given(timeProvider.now()).willReturn(NOW);
         given(orderRepository.startShippingDue(NOW.minusDays(1), NOW)).willReturn(2);
         given(orderRepository.completeDeliveriesDue(NOW.minusDays(2), NOW)).willReturn(3);
@@ -223,6 +226,9 @@ class OrderServiceTest {
                 .productId(50L)
                 .productName("공동구매 상품")
                 .quantity(2)
+                .basePrice(7_875)
+                .discountRate(new BigDecimal("0.20"))
+                .discountAmount(3_150)
                 .amount(12_600)
                 .deliveryStatus(status)
                 .createdAt(NOW)

@@ -2,6 +2,7 @@ package com.gachisa.order.dto;
 
 import com.gachisa.order.entity.DeliveryStatus;
 import com.gachisa.order.entity.Order;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record OrderResponse(
@@ -14,6 +15,9 @@ public record OrderResponse(
         String productName,
         String productImageUrl,
         int quantity,
+        int basePrice,
+        BigDecimal discountRate,
+        int discountAmount,
         int amount,
         boolean deliveryAddressRegistered,
         DeliveryStatus deliveryStatus,
@@ -32,6 +36,9 @@ public record OrderResponse(
                 order.getProductName(),
                 order.getProductImageUrl(),
                 order.getQuantity(),
+                order.getBasePrice(),
+                order.getDiscountRate(),
+                order.getDiscountAmount(),
                 order.getAmount(),
                 order.getAddress() != null,
                 order.getDeliveryStatus(),

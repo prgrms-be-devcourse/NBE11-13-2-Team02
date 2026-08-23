@@ -8,7 +8,7 @@ import static org.mockito.Mockito.verify;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.payment.client.PgClient;
-import com.gachisa.payment.client.PgClient.PgPaymentQueryResult;
+import com.gachisa.payment.client.dto.PgPaymentQueryResult;
 import com.gachisa.payment.dto.TossPaymentWebhookRequest;
 import com.gachisa.payment.dto.TossWebhookResponse;
 import com.gachisa.payment.entity.PaymentMethod;

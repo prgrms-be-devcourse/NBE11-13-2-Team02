@@ -8,9 +8,9 @@ import com.gachisa.groupbuy.service.GroupBuyService;
 import com.gachisa.queue.dto.QueueState;
 import com.gachisa.queue.dto.QueueStatusResponse;
 import com.gachisa.queue.dto.QueueTokenResponse;
+import com.gachisa.queue.dto.ExpiredAdmission;
 import com.gachisa.queue.event.QueueAdmissionExpiredEvent;
 import com.gachisa.queue.repository.QueueRedisRepository;
-import com.gachisa.queue.repository.QueueRedisRepository.ExpiredAdmission;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -83,10 +83,13 @@ public class QueueService {
 
     public void processAllQueues() {
         for (String groupBuyId : queueRepository.getGroupBuyIds()) {
-            GroupBuyQueueInfo groupBuy = groupBuyService.getQueueInfo(Long.valueOf(groupBuyId));
+            Long id = Long.valueOf(groupBuyId);
+            GroupBuyQueueInfo groupBuy = groupBuyService.getQueueInfo(id);
             if (groupBuy.isOpen(timeProvider.now())) {
                 processExpired(groupBuy);
                 admitAvailable(groupBuy);
+            } else {
+                queueRepository.deleteQueue(id);
             }
         }
     }

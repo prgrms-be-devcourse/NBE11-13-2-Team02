@@ -13,6 +13,8 @@ import com.gachisa.payment.entity.RefundStatus;
 import com.gachisa.payment.repository.PaymentRepository;
 import com.gachisa.payment.repository.PaymentAttemptRepository;
 import com.gachisa.payment.repository.RefundRepository;
+import com.gachisa.payment.service.dto.RefundPreparation;
+import com.gachisa.payment.service.dto.RefundRecoveryTarget;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +37,7 @@ public class RefundStateService {
         validateReason(reason);
         Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
-        Refund existingRefund = refundRepository.findByPaymentId(paymentId).orElse(null);
+        Refund existingRefund = refundRepository.findByPaymentIdForUpdate(paymentId).orElse(null);
 
         if (existingRefund != null) {
             if (existingRefund.getStatus() == RefundStatus.FAILED) {
@@ -120,7 +122,8 @@ public class RefundStateService {
 
     @Transactional
     public void fail(Long refundId, ErrorCode errorCode) {
-        Refund refund = getRefundEntity(refundId);
+        Refund refund = refundRepository.findByIdForUpdate(refundId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REFUND_NOT_FOUND));
         if (refund.getStatus() != RefundStatus.REFUNDED) {
             refund.fail(errorCode.name(), errorCode.getMessage(), timeProvider.now());
         }
@@ -148,40 +151,4 @@ public class RefundStateService {
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ATTEMPT_NOT_FOUND));
     }
 
-    public record RefundPreparation(
-            Long refundId,
-            String paymentKey,
-            String reason,
-            String pgIdempotencyKey,
-            boolean requestRequired
-    ) {
-
-        private static RefundPreparation request(Refund refund, PaymentAttempt attempt) {
-            return new RefundPreparation(
-                    refund.getId(),
-                    attempt.getPgPaymentKey(),
-                    refund.getReason(),
-                    refund.getPgIdempotencyKey(),
-                    true
-            );
-        }
-
-        private static RefundPreparation existing(Refund refund) {
-            return new RefundPreparation(
-                    refund.getId(),
-                    null,
-                    refund.getReason(),
-                    refund.getPgIdempotencyKey(),
-                    false
-            );
-        }
-    }
-
-    public record RefundRecoveryTarget(
-            Long refundId,
-            String paymentKey,
-            String pgOrderId,
-            int amount
-    ) {
-    }
 }

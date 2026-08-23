@@ -7,7 +7,7 @@ import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.order.dto.OrderCreateCommand;
 import com.gachisa.order.dto.OrderResponse;
 import com.gachisa.order.service.OrderService;
-import com.gachisa.payment.client.PgClient.PgConfirmationResult;
+import com.gachisa.payment.client.dto.PgConfirmationResult;
 import com.gachisa.payment.dto.PaymentConfirmRequest;
 import com.gachisa.payment.dto.PaymentResponse;
 import com.gachisa.payment.entity.Payment;
@@ -17,6 +17,7 @@ import com.gachisa.payment.entity.PaymentMethod;
 import com.gachisa.payment.entity.PaymentStatus;
 import com.gachisa.payment.repository.PaymentAttemptRepository;
 import com.gachisa.payment.repository.PaymentRepository;
+import com.gachisa.payment.service.dto.ConfirmationPreparation;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.queue.service.QueueService;
 import lombok.RequiredArgsConstructor;
@@ -120,7 +121,7 @@ public class PaymentConfirmationStateService {
     }
 
     private PaymentAndAttempt getForUpdate(Long attemptId) {
-        Long paymentId = paymentAttemptRepository.findPaymentIdById(attemptId)
+        Long paymentId = paymentAttemptRepository.findPaymentIdByAttemptId(attemptId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_ATTEMPT_NOT_FOUND));
         Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
@@ -141,38 +142,4 @@ public class PaymentConfirmationStateService {
     private record PaymentAndAttempt(Payment payment, PaymentAttempt attempt) {
     }
 
-    public record ConfirmationPreparation(
-            Long paymentAttemptId,
-            String paymentKey,
-            String pgOrderId,
-            int amount,
-            String pgIdempotencyKey,
-            PaymentMethod paymentMethod,
-            boolean requestRequired,
-            PaymentResponse existingResponse
-    ) {
-
-        private static ConfirmationPreparation request(Payment payment, PaymentAttempt attempt) {
-            return new ConfirmationPreparation(
-                    attempt.getId(), attempt.getPgPaymentKey(), attempt.getPgOrderId(), payment.getAmount(),
-                    attempt.getPgIdempotencyKey(), attempt.getPaymentMethod(), true, null
-            );
-        }
-
-        private static ConfirmationPreparation existing(Payment payment, PaymentAttempt attempt) {
-            return new ConfirmationPreparation(
-                    attempt.getId(), attempt.getPgPaymentKey(), attempt.getPgOrderId(), payment.getAmount(),
-                    attempt.getPgIdempotencyKey(), attempt.getPaymentMethod(), false,
-                    PaymentResponse.from(payment, attempt)
-            );
-        }
-
-        private static ConfirmationPreparation existing(Payment payment, PaymentAttempt attempt, Long orderId) {
-            return new ConfirmationPreparation(
-                    attempt.getId(), attempt.getPgPaymentKey(), attempt.getPgOrderId(), payment.getAmount(),
-                    attempt.getPgIdempotencyKey(), attempt.getPaymentMethod(), false,
-                    PaymentResponse.from(payment, attempt, orderId)
-            );
-        }
-    }
 }

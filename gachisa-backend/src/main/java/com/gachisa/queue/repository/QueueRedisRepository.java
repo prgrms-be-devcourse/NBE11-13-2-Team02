@@ -1,5 +1,7 @@
 package com.gachisa.queue.repository;
 
+import com.gachisa.queue.dto.ExpiredAdmission;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Repository;
 public class QueueRedisRepository {
 
     private static final String GROUPS_KEY = "queue:groups";
+    private static final Duration QUEUE_IDLE_TTL = Duration.ofHours(24);
 
     private static final DefaultRedisScript<Long> ENQUEUE_SCRIPT =
             loadScript("redis/queue-enqueue.lua", Long.class);
@@ -45,6 +48,7 @@ public class QueueRedisRepository {
                 List.of(waitingKey(groupBuyId), sequenceKey(groupBuyId), tokenKey(groupBuyId), GROUPS_KEY),
                 userId.toString(), queueToken, groupBuyId.toString()
         );
+        refreshTtl(groupBuyId);
     }
 
     public void admit(Long groupBuyId, int capacity, int batchSize, Instant expiresAt) {
@@ -53,6 +57,7 @@ public class QueueRedisRepository {
                 List.of(waitingKey(groupBuyId), activeKey(groupBuyId), confirmingKey(groupBuyId)),
                 Integer.toString(capacity), Integer.toString(batchSize), Long.toString(expiresAt.toEpochMilli())
         );
+        refreshTtl(groupBuyId);
     }
 
     public List<ExpiredAdmission> requeueExpired(Long groupBuyId, Instant now) {
@@ -61,6 +66,7 @@ public class QueueRedisRepository {
                 List.of(activeKey(groupBuyId), waitingKey(groupBuyId), sequenceKey(groupBuyId), attemptKey(groupBuyId)),
                 Long.toString(now.toEpochMilli())
         );
+        refreshTtl(groupBuyId);
         if (values == null || values.isEmpty()) {
             return Collections.emptyList();
         }
@@ -82,6 +88,7 @@ public class QueueRedisRepository {
                 List.of(activeKey(groupBuyId), confirmingKey(groupBuyId)),
                 userId.toString(), Long.toString(now.toEpochMilli())
         );
+        refreshTtl(groupBuyId);
         return Long.valueOf(1L).equals(result);
     }
 
@@ -92,6 +99,7 @@ public class QueueRedisRepository {
                         tokenKey(groupBuyId), attemptKey(groupBuyId)),
                 userId.toString()
         );
+        refreshTtl(groupBuyId);
     }
 
     public void requeueConfirmation(Long groupBuyId, Long userId) {
@@ -100,10 +108,12 @@ public class QueueRedisRepository {
                 List.of(confirmingKey(groupBuyId), waitingKey(groupBuyId), sequenceKey(groupBuyId), attemptKey(groupBuyId)),
                 userId.toString()
         );
+        refreshTtl(groupBuyId);
     }
 
     public void bindPaymentAttempt(Long groupBuyId, Long userId, Long paymentAttemptId) {
         redisTemplate.opsForHash().put(attemptKey(groupBuyId), userId.toString(), paymentAttemptId.toString());
+        refreshTtl(groupBuyId);
     }
 
     public String getToken(Long groupBuyId, Long userId) {
@@ -130,6 +140,31 @@ public class QueueRedisRepository {
         return values == null ? Collections.emptySet() : values;
     }
 
+    public void deleteQueue(Long groupBuyId) {
+        redisTemplate.delete(List.of(
+                waitingKey(groupBuyId),
+                activeKey(groupBuyId),
+                confirmingKey(groupBuyId),
+                tokenKey(groupBuyId),
+                attemptKey(groupBuyId),
+                sequenceKey(groupBuyId)
+        ));
+        redisTemplate.opsForSet().remove(GROUPS_KEY, groupBuyId.toString());
+    }
+
+    private void refreshTtl(Long groupBuyId) {
+        for (String key : List.of(
+                waitingKey(groupBuyId),
+                activeKey(groupBuyId),
+                confirmingKey(groupBuyId),
+                tokenKey(groupBuyId),
+                attemptKey(groupBuyId),
+                sequenceKey(groupBuyId)
+        )) {
+            redisTemplate.expire(key, QUEUE_IDLE_TTL);
+        }
+    }
+
     private String waitingKey(Long groupBuyId) {
         return "queue:waiting:" + groupBuyId;
     }
@@ -154,6 +189,4 @@ public class QueueRedisRepository {
         return "queue:sequence:" + groupBuyId;
     }
 
-    public record ExpiredAdmission(Long userId, Long paymentAttemptId) {
-    }
 }

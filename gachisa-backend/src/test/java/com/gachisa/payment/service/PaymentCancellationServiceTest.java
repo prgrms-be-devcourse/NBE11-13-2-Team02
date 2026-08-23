@@ -72,7 +72,7 @@ class PaymentCancellationServiceTest {
                 .updatedAt(NOW.minusMinutes(1))
                 .build();
         given(participationService.getPaymentInfo(PARTICIPATION_ID)).willReturn(paymentInfo());
-        given(paymentRepository.findByParticipationId(PARTICIPATION_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByParticipationIdForUpdate(PARTICIPATION_ID)).willReturn(Optional.of(payment));
         given(paymentAttemptRepository.findFirstByPaymentIdAndStatusInOrderByCreatedAtDesc(
                 payment.getId(), List.of(PaymentAttemptStatus.READY, PaymentAttemptStatus.PROCESSING)))
                 .willReturn(Optional.of(attempt));
@@ -91,7 +91,7 @@ class PaymentCancellationServiceTest {
         Payment payment = payment(PaymentStatus.PAID);
         RefundResponse refund = refundResponse(RefundStatus.REFUND_PENDING);
         given(participationService.getPaymentInfo(PARTICIPATION_ID)).willReturn(paymentInfo());
-        given(paymentRepository.findByParticipationId(PARTICIPATION_ID)).willReturn(Optional.of(payment));
+        given(paymentRepository.findByParticipationIdForUpdate(PARTICIPATION_ID)).willReturn(Optional.of(payment));
         given(refundService.requestRefund(payment.getId(), "구매자 공동구매 참여 취소"))
                 .willReturn(refund);
 

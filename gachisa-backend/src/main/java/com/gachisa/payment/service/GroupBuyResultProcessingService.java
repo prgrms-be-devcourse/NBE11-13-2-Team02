@@ -6,17 +6,16 @@ import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.order.service.OrderService;
 import com.gachisa.payment.dto.GroupBuyResultCommand;
-import com.gachisa.payment.dto.GroupBuyResultProcessingResponse;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.entity.PaymentStatus;
-import com.gachisa.payment.dto.RefundResponse;
-import com.gachisa.payment.entity.RefundStatus;
 import com.gachisa.payment.repository.PaymentRepository;
 import java.util.List;
 import java.util.HashSet;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GroupBuyResultProcessingService {
@@ -28,41 +27,25 @@ public class GroupBuyResultProcessingService {
     private final ParticipationService participationService;
     private final OrderService orderService;
 
-    public GroupBuyResultProcessingResponse process(GroupBuyResultCommand command) {
+    public void process(GroupBuyResultCommand command) {
         validateParticipations(command);
         List<Payment> payments = paymentRepository.findAllByParticipationIdInAndStatus(
                 command.participationIds(), PaymentStatus.PAID);
         if (command.result() == GroupBuyResultCommand.Result.ACHIEVED) {
             orderService.startPreparationForGroupBuy(command.groupBuyId());
-            return new GroupBuyResultProcessingResponse(command.groupBuyId(), payments.size(), 0, 0, 0);
+            return;
         }
 
-        int pendingCount = 0;
-        int refundedCount = 0;
-        int failedCount = 0;
         for (Payment payment : payments) {
             try {
-                RefundResponse refund = refundService.requestRefund(payment.getId(), TARGET_NOT_ACHIEVED_REASON);
-                if (refund.status() == RefundStatus.REFUNDED) {
-                    refundedCount++;
-                } else if (refund.status() == RefundStatus.REFUND_PENDING
-                        || refund.status() == RefundStatus.PROCESSING) {
-                    pendingCount++;
-                } else {
-                    failedCount++;
-                }
+                refundService.requestRefund(payment.getId(), TARGET_NOT_ACHIEVED_REASON);
             } catch (CustomException exception) {
-                failedCount++;
+                log.warn(
+                        "공동구매 결과 환불 요청 실패. groupBuyId={}, paymentId={}, errorCode={}",
+                        command.groupBuyId(), payment.getId(), exception.getErrorCode()
+                );
             }
         }
-
-        return new GroupBuyResultProcessingResponse(
-                command.groupBuyId(),
-                payments.size(),
-                pendingCount,
-                refundedCount,
-                failedCount
-        );
     }
 
     private void validateParticipations(GroupBuyResultCommand command) {

@@ -5,7 +5,7 @@ import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.global.util.TimeProvider;
 import com.gachisa.order.service.OrderService;
 import com.gachisa.participation.service.ParticipationService;
-import com.gachisa.payment.client.PgClient.PgCancellationResult;
+import com.gachisa.payment.client.dto.PgCancellationResult;
 import com.gachisa.payment.dto.RefundResponse;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.entity.PaymentAttempt;
@@ -36,9 +36,11 @@ public class RefundCompletionService {
 
     @Transactional
     public RefundResponse complete(Long refundId, PgCancellationResult result) {
-        Refund refund = getRefund(refundId);
-        Payment payment = paymentRepository.findByIdForUpdate(refund.getPaymentId())
+        Refund refundSnapshot = getRefund(refundId);
+        Payment payment = paymentRepository.findByIdForUpdate(refundSnapshot.getPaymentId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
+        Refund refund = refundRepository.findByIdForUpdate(refundId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REFUND_NOT_FOUND));
 
         if (refund.getStatus() == RefundStatus.REFUNDED) {
             return RefundResponse.from(refund);
@@ -62,7 +64,7 @@ public class RefundCompletionService {
             throw new CustomException(ErrorCode.PAYMENT_GATEWAY_INVALID_RESPONSE);
         }
 
-        Refund refund = refundRepository.findByPaymentId(payment.getId()).orElse(null);
+        Refund refund = refundRepository.findByPaymentIdForUpdate(payment.getId()).orElse(null);
         LocalDateTime now = timeProvider.now();
         if (refund == null) {
             refund = createRefund(payment, reason, now);

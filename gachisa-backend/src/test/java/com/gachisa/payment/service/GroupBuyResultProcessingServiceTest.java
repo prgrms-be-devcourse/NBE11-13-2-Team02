@@ -1,6 +1,5 @@
 package com.gachisa.payment.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -9,12 +8,9 @@ import static org.mockito.Mockito.verify;
 import com.gachisa.global.exception.CustomException;
 import com.gachisa.global.exception.ErrorCode;
 import com.gachisa.payment.dto.GroupBuyResultCommand;
-import com.gachisa.payment.dto.GroupBuyResultProcessingResponse;
 import com.gachisa.payment.entity.Payment;
 import com.gachisa.payment.repository.PaymentRepository;
 import com.gachisa.payment.entity.PaymentStatus;
-import com.gachisa.payment.entity.RefundStatus;
-import com.gachisa.payment.dto.RefundResponse;
 import com.gachisa.participation.dto.ParticipationPaymentInfo;
 import com.gachisa.participation.service.ParticipationService;
 import com.gachisa.order.service.OrderService;
@@ -67,15 +63,10 @@ class GroupBuyResultProcessingServiceTest {
                 .willReturn(List.of(first, second));
         given(refundService.requestRefund(1L, REFUND_REASON))
                 .willThrow(new CustomException(ErrorCode.PAYMENT_GATEWAY_UNAVAILABLE));
-        given(refundService.requestRefund(2L, REFUND_REASON))
-                .willReturn(pendingRefund(2L));
 
-        GroupBuyResultProcessingResponse response = processingService.process(command);
+        processingService.process(command);
 
-        assertThat(response.targetPaymentCount()).isEqualTo(2);
-        assertThat(response.pendingCount()).isEqualTo(1);
-        assertThat(response.refundedCount()).isZero();
-        assertThat(response.failedCount()).isEqualTo(1);
+        verify(refundService).requestRefund(1L, REFUND_REASON);
         verify(refundService).requestRefund(2L, REFUND_REASON);
     }
 
@@ -92,9 +83,8 @@ class GroupBuyResultProcessingServiceTest {
                 command.participationIds(), PaymentStatus.PAID))
                 .willReturn(List.of(payment));
 
-        GroupBuyResultProcessingResponse response = processingService.process(command);
+        processingService.process(command);
 
-        assertThat(response.refundedCount()).isZero();
         verify(orderService).startPreparationForGroupBuy(10L);
         verify(refundService, never()).requestRefund(1L, REFUND_REASON);
     }
@@ -140,19 +130,4 @@ class GroupBuyResultProcessingServiceTest {
         return new ParticipationPaymentInfo(participationId, 1L, groupBuyId, 1, true);
     }
 
-    private RefundResponse pendingRefund(Long paymentId) {
-        return new RefundResponse(
-                paymentId + 100L,
-                paymentId,
-                12_600,
-                REFUND_REASON,
-                RefundStatus.REFUND_PENDING,
-                0,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
-    }
 }
