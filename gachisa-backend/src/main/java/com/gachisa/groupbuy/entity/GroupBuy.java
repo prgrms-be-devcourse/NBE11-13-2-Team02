@@ -85,6 +85,11 @@ public class GroupBuy {
         this.currentCount = Math.max(0, this.currentCount - quantity);
     }
 
+    /** 동시성 데모에서 정원을 비우고 다시 경쟁시키기 위해 사용 */
+    public void resetCurrentCount(int value) {
+        this.currentCount = Math.max(0, value);
+    }
+
     public void cancelBySeller() {
         if (status != GroupBuyStatus.RECRUITING) {
             throw new CustomException(ErrorCode.GROUP_BUY_CANNOT_CANCEL);

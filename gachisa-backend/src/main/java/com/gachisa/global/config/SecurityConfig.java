@@ -54,7 +54,8 @@ public class SecurityConfig {
                     "/api/categories",
                     "/api/categories/*",
                     "/api/group-buys",
-                    "/api/group-buys/*"
+                    "/api/group-buys/*",
+                    "/api/group-buys/*/participation-count"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

@@ -10,6 +10,8 @@ import com.gachisa.groupbuy.dto.GroupBuyResponse;
 import com.gachisa.groupbuy.entity.GroupBuy;
 import com.gachisa.groupbuy.entity.GroupBuyStatus;
 import com.gachisa.groupbuy.repository.GroupBuyRepository;
+import com.gachisa.groupbuy.repository.GroupBuyStockRedisRepository;
+import com.gachisa.groupbuy.repository.GroupBuyStockRedisRepository.ReserveResult;
 import com.gachisa.product.entity.Product;
 import com.gachisa.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ public class GroupBuyService {
 
     private final GroupBuyRepository groupBuyRepository;
     private final ProductRepository productRepository;
+    private final GroupBuyStockRedisRepository stockRedisRepository;
 
     /** GB-01 */
     @Transactional
@@ -44,6 +47,7 @@ public class GroupBuyService {
             .build();
 
         groupBuyRepository.save(groupBuy);
+        stockRedisRepository.overwrite(groupBuy.getId(), groupBuy.getCurrentCount(), groupBuy.getTargetCount());
         return GroupBuyResponse.from(groupBuy);
     }
 
@@ -106,26 +110,33 @@ public class GroupBuyService {
         return GroupBuyResponse.from(groupBuy);
     }
 
-    /*
-     * 참여(Participation) 도메인에서 호출하는 핵심 메서드.
-     * 비관적 락으로 group_buy row를 잠근 뒤 인원을 예약한다.
-     * 트랜잭션 전파 기본값(REQUIRED)이므로 호출자(ParticipationService)의
-     * 트랜잭션에 참여하여 같은 트랜잭션 범위 안에서 락이 유지된다.
+    /**
+     * 참여 도메인에서 호출하는 핵심 메서드.
+     * 1) Redis Lua로 정원을 원자 예약 (빠른 게이트키퍼)
+     * 2) DB SELECT FOR UPDATE 로 row 잠근 뒤 currentCount 반영 (최종 정합성)
+     * Redis 예약 성공 후 DB가 실패하면 Redis를 즉시 롤백한다.
      */
     @Transactional
     public GroupBuy reserveSlots(Long groupBuyId, int quantity) {
-        GroupBuy groupBuy = groupBuyRepository.findByIdForUpdate(groupBuyId)
-            .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
-        groupBuy.reserve(quantity);
-        return groupBuy;
+        reserveInRedis(groupBuyId, quantity);
+        try {
+            GroupBuy groupBuy = groupBuyRepository.findByIdForUpdate(groupBuyId)
+                .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
+            groupBuy.reserve(quantity);
+            return groupBuy;
+        } catch (RuntimeException ex) {
+            stockRedisRepository.release(groupBuyId, quantity);
+            throw ex;
+        }
     }
 
-    /** 참여 취소 시 인원 롤백 (역시 락 하에서 처리) */
+    /** 참여 취소 시 인원 롤백 (DB 락 + Redis) */
     @Transactional
     public void releaseSlots(Long groupBuyId, int quantity) {
         GroupBuy groupBuy = groupBuyRepository.findByIdForUpdate(groupBuyId)
             .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
         groupBuy.release(quantity);
+        stockRedisRepository.release(groupBuyId, quantity);
     }
 
     /** 참여 도메인(PT-03 등)이 락 없이 가볍게 엔티티를 조회할 때 사용 */
@@ -133,6 +144,23 @@ public class GroupBuyService {
     public GroupBuy getGroupBuyEntityOrThrow(Long groupBuyId) {
         return groupBuyRepository.findById(groupBuyId)
             .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
+    }
+
+    /**
+     * 실시간 참여 인원: Redis 우선, 없으면 DB에서 읽어 Redis를 초기화한다.
+     */
+    @Transactional(readOnly = true)
+    public ParticipationStockView getStockView(Long groupBuyId) {
+        GroupBuy groupBuy = getGroupBuyEntityOrThrow(groupBuyId);
+        Integer current = stockRedisRepository.getCurrentCount(groupBuyId).orElse(null);
+        Integer target = stockRedisRepository.getTargetCount(groupBuyId).orElse(null);
+        if (current == null || target == null) {
+            stockRedisRepository.initIfAbsent(
+                groupBuyId, groupBuy.getCurrentCount(), groupBuy.getTargetCount());
+            current = stockRedisRepository.getCurrentCount(groupBuyId).orElse(groupBuy.getCurrentCount());
+            target = stockRedisRepository.getTargetCount(groupBuyId).orElse(groupBuy.getTargetCount());
+        }
+        return new ParticipationStockView(current, target);
     }
 
     @Transactional(readOnly = true)
@@ -148,13 +176,36 @@ public class GroupBuyService {
     @Transactional(readOnly = true)
     public GroupBuyQueueInfo getQueueInfo(Long groupBuyId) {
         GroupBuy groupBuy = getGroupBuyEntityOrThrow(groupBuyId);
+        int current = stockRedisRepository.getCurrentCount(groupBuyId).orElse(groupBuy.getCurrentCount());
         return new GroupBuyQueueInfo(
             groupBuy.getId(),
             groupBuy.getTargetCount(),
-            groupBuy.getCurrentCount(),
+            current,
             groupBuy.getOpenAt(),
             groupBuy.getDeadline(),
             groupBuy.getStatus()
         );
+    }
+
+    private void reserveInRedis(Long groupBuyId, int quantity) {
+        ReserveResult first = stockRedisRepository.tryReserve(groupBuyId, quantity);
+        if (first.isOk()) {
+            return;
+        }
+        if (first.isFull()) {
+            throw new CustomException(ErrorCode.GROUP_BUY_FULL);
+        }
+
+        GroupBuy groupBuy = groupBuyRepository.findById(groupBuyId)
+            .orElseThrow(() -> new CustomException(ErrorCode.GROUP_BUY_NOT_FOUND));
+        stockRedisRepository.initIfAbsent(groupBuyId, groupBuy.getCurrentCount(), groupBuy.getTargetCount());
+
+        ReserveResult second = stockRedisRepository.tryReserve(groupBuyId, quantity);
+        if (second.isFull() || second.isNotInitialized()) {
+            throw new CustomException(ErrorCode.GROUP_BUY_FULL);
+        }
+    }
+
+    public record ParticipationStockView(int currentCount, int targetCount) {
     }
 }
