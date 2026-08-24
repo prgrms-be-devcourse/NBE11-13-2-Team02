@@ -8,8 +8,15 @@ spring:
     password: gachisa1234
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
   jpa:
     hibernate:
+      # create-drop + sql.init.mode: always → 앱 시작마다 스키마/시드 초기화
+      # update + sql.init.mode: never → 기존 DB 유지 (이미 시드된 로컬 DB용)
       ddl-auto: create-drop
     defer-datasource-initialization: true
     show-sql: true

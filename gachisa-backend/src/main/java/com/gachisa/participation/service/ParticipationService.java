@@ -64,7 +64,8 @@ public class ParticipationService {
                         groupBuyId, userId, ACTIVE_STATUSES)
                 .orElse(null);
         if (existingParticipation != null) {
-            groupBuy.release(request.getQuantity());
+            // Redis+DB 모두 롤백 (reserveSlots가 이미 둘 다 증가시킨 상태)
+            groupBuyService.releaseSlots(groupBuyId, request.getQuantity());
             return ParticipationResponse.from(existingParticipation);
         }
 
@@ -108,11 +109,11 @@ public class ParticipationService {
         return ParticipationResponse.from(participation);
     }
 
-    /** PT-03. 실시간 참여 인원 조회 (Redis 미사용 - DB 직접 조회) */
+    /** PT-03. 실시간 참여 인원 조회 (Redis 우선, 없으면 DB 동기화) */
     @Transactional(readOnly = true)
     public ParticipationCountResponse getParticipationCount(Long groupBuyId) {
-        GroupBuy groupBuy = groupBuyService.getGroupBuyEntityOrThrow(groupBuyId);
-        return new ParticipationCountResponse(groupBuy.getCurrentCount(), groupBuy.getTargetCount());
+        GroupBuyService.ParticipationStockView stock = groupBuyService.getStockView(groupBuyId);
+        return new ParticipationCountResponse(stock.currentCount(), stock.targetCount());
     }
 
     /** PT-04. 참여 이력 조회 */

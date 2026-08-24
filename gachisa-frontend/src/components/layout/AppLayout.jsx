@@ -138,6 +138,7 @@ export default function AppLayout() {
                     <MenuItem onClick={() => goTo('/my/products')}>내 상품 관리</MenuItem>
                     <MenuItem onClick={() => goTo('/products/new')}>상품 등록</MenuItem>
                     <MenuItem onClick={() => goTo('/group-buys/new')}>공동구매 등록</MenuItem>
+                    <MenuItem onClick={() => goTo('/dev/concurrency')}>동시성 검증</MenuItem>
                   </>
                 )}
                 {isAdmin && (
@@ -145,6 +146,7 @@ export default function AppLayout() {
                     <Divider />
                     <MenuItem onClick={() => goTo('/admin/categories')}>카테고리 관리</MenuItem>
                     <MenuItem onClick={() => goTo('/admin/deliveries')}>배송 관리</MenuItem>
+                    <MenuItem onClick={() => goTo('/dev/concurrency')}>동시성 검증</MenuItem>
                   </>
                 )}
                 <Divider />
