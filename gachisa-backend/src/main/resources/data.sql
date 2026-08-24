@@ -123,7 +123,19 @@ INSERT INTO product (seller_id, category_id, name, description, base_price, stoc
 (3, 3, '웹캠 1080p (리필)', '웹캠 1080p (리필) 상세 설명입니다.', 8900, 10, 'ON_SALE', NOW()),
 (3, 3, '스마트워치 (리필)', '스마트워치 (리필) 상세 설명입니다.', 10, 50, 'ON_SALE', NOW());
 
--- 공동구매 목록/검색 테스트용 대량 시드 데이터 (상품 1~100 전부 대상, 10원짜리 상품 포함 총 100개)
+-- ============================================================
+-- 공동구매(group_buy)
+-- ============================================================
+
+-- [시연용] 마감 인원이 딱 1명 남은 공동구매. group_buy id 1~3으로 먼저 생성해서
+-- 시연 중 바로 참여 → "마감 임박/정원 마감"으로 전환되는 걸 즉시 보여줄 수 있도록 한다.
+-- 마감시각(deadline)은 시연 준비 시간을 감안해 오늘 안에서 여유 있게 잡았다.
+INSERT INTO group_buy (product_id, target_count, current_count, discount_rate, open_at, deadline, status, seller_id) VALUES
+(1, 5, 4, 0.30, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_ADD(NOW(), INTERVAL 6 HOUR), 'RECRUITING', 3),
+(2, 6, 5, 0.20, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_ADD(NOW(), INTERVAL 12 HOUR), 'RECRUITING', 3),
+(3, 4, 3, 0.25, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY), 'RECRUITING', 3);
+
+-- 공동구매 목록/검색/페이지네이션 테스트용 대량 시드 데이터 (상품 1~100 전부 대상, 총 100개)
 INSERT INTO group_buy (product_id, target_count, current_count, discount_rate, open_at, deadline, status, seller_id) VALUES
 (1, 10, 8, 0.30, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 'RECRUITING', 3),
 (2, 8,  2, 0.20, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 'RECRUITING', 3),
@@ -226,18 +238,152 @@ INSERT INTO group_buy (product_id, target_count, current_count, discount_rate, o
 (99, 5, 0, 0.45, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 'RECRUITING', 3),
 (100, 40, 1, 0.10, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 'RECRUITING', 3);
 
+-- [시연용] 구매자별 "내 참여내역 / 내 주문" 화면에서 다양한 상태를 보여주기 위한 전용 공동구매.
+-- 위의 대량 시드(100개) 뒤에 이어지므로 id는 104~115가 된다.
+-- product_id 4~15(생활/리빙 카테고리)를 하나씩 재사용해 각기 다른 결과를 시연한다.
+INSERT INTO group_buy (product_id, target_count, current_count, discount_rate, open_at, deadline, status, seller_id) VALUES
+-- id 104: buyer1 참여중(결제 전) 시연용, 모집중
+(5, 10, 2, 0.10, DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_ADD(NOW(), INTERVAL 4 DAY), 'RECRUITING', 3),
+-- id 105: buyer1 참여취소 시연용, 모집중
+(6, 8, 0, 0.15, DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_ADD(NOW(), INTERVAL 5 DAY), 'RECRUITING', 3),
+-- id 106: buyer1 결제완료(주문: 공동구매 결과 대기중) 시연용, 모집중
+(8, 15, 1, 0.10, DATE_SUB(NOW(), INTERVAL 4 DAY), DATE_ADD(NOW(), INTERVAL 3 DAY), 'RECRUITING', 3),
+-- id 107: buyer1 결제완료 + 목표 달성 + 배송지 미입력(주문: 상품준비중) 시연용
+(9, 3, 3, 0.20, DATE_SUB(NOW(), INTERVAL 10 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY), 'SETTLED', 3),
+-- id 108: buyer1 결제완료 + 목표 달성 + 배송지 입력 + 배송중 시연용
+(10, 2, 2, 0.30, DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL 10 DAY), 'SETTLED', 3),
+-- id 109: buyer1 목표 미달로 환불 + 주문취소 시연용
+(11, 20, 5, 0.15, DATE_SUB(NOW(), INTERVAL 8 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY), 'SETTLED', 3),
+-- id 110: buyer2 참여중(결제 전) 시연용, 모집중
+(12, 10, 3, 0.20, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_ADD(NOW(), INTERVAL 6 DAY), 'RECRUITING', 3),
+-- id 111: buyer2 결제완료(주문: 공동구매 결과 대기중) 시연용, 모집중
+(13, 20, 9, 0.15, DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 2 DAY), 'RECRUITING', 3),
+-- id 112: buyer2 결제완료 + 목표 달성 + 배송지 입력(주문: 상품준비중) 시연용
+(14, 4, 4, 0.25, DATE_SUB(NOW(), INTERVAL 9 DAY), DATE_SUB(NOW(), INTERVAL 4 DAY), 'SETTLED', 3),
+-- id 113: buyer2 결제완료 + 목표 달성 + 배송완료 시연용
+(15, 1, 1, 0.10, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL 15 DAY), 'SETTLED', 3),
+-- id 114: buyer2 배송완료 후 반품 처리완료(주문: 반품완료) 시연용
+(4, 5, 5, 0.05, DATE_SUB(NOW(), INTERVAL 25 DAY), DATE_SUB(NOW(), INTERVAL 20 DAY), 'SETTLED', 3),
+-- id 115: buyer2 배송완료 후 반품 진행중(주문: 반품중) 시연용
+(7, 1, 1, 0.20, DATE_SUB(NOW(), INTERVAL 30 DAY), DATE_SUB(NOW(), INTERVAL 25 DAY), 'SETTLED', 3);
+
+-- ============================================================
+-- 참여(participation) — buyer1(id 1), buyer2(id 2)의 다양한 상태
+-- ============================================================
 INSERT INTO participation (group_buy_id, user_id, quantity, status, participated_at) VALUES
-                                                                                         (1, 1, 1, 'PARTICIPATING', NOW()),
-                                                                                         (2, 2, 1, 'PARTICIPATING', NOW()),
-                                                                                         (1, 2, 1, 'CONFIRMED', NOW());
+-- participation 1: buyer1, 참여만 하고 결제는 하지 않은 상태
+(104, 1, 2, 'PARTICIPATING', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+-- participation 2: buyer1, 참여 후 스스로 취소한 상태
+(105, 1, 1, 'CANCELLED', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+-- participation 3: buyer1, 결제완료 + 공동구매 결과 대기중
+(106, 1, 1, 'CONFIRMED', DATE_SUB(NOW(), INTERVAL 4 DAY)),
+-- participation 4: buyer1, 결제완료 + 목표달성, 배송지 미입력(상품준비중)
+(107, 1, 3, 'CONFIRMED', DATE_SUB(NOW(), INTERVAL 9 DAY)),
+-- participation 5: buyer1, 결제완료 + 목표달성 + 배송중
+(108, 1, 2, 'CONFIRMED', DATE_SUB(NOW(), INTERVAL 14 DAY)),
+-- participation 6: buyer1, 목표미달로 환불된 상태
+(109, 1, 1, 'REFUNDED', DATE_SUB(NOW(), INTERVAL 7 DAY)),
+-- participation 7: buyer2, 참여만 하고 결제는 하지 않은 상태
+(110, 2, 1, 'PARTICIPATING', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+-- participation 8: buyer2, 결제완료 + 공동구매 결과 대기중
+(111, 2, 1, 'CONFIRMED', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+-- participation 9: buyer2, 결제완료 + 목표달성 + 배송지 입력(상품준비중)
+(112, 2, 4, 'CONFIRMED', DATE_SUB(NOW(), INTERVAL 8 DAY)),
+-- participation 10: buyer2, 결제완료 + 목표달성 + 배송완료
+(113, 2, 1, 'CONFIRMED', DATE_SUB(NOW(), INTERVAL 19 DAY)),
+-- participation 11: buyer2, 배송완료 후 반품 처리완료(환불)
+(114, 2, 5, 'REFUNDED', DATE_SUB(NOW(), INTERVAL 24 DAY)),
+-- participation 12: buyer2, 배송완료 후 반품 진행중(환불)
+(115, 2, 1, 'REFUNDED', DATE_SUB(NOW(), INTERVAL 29 DAY));
 
--- 참여 3번(id=3)은 결제/주문까지 완료된 상태를 보여주는 예시 데이터
-INSERT INTO payment (participation_id, amount, status, created_at, updated_at, paid_at) VALUES
-                                                                                              (3, 12600, 'PAID', NOW(), NOW(), NOW());
+-- ============================================================
+-- 결제(payment) — 위 participation 3~6, 8~12에 대응 (1~2, 7번은 결제 전이라 없음)
+-- ============================================================
+INSERT INTO payment (participation_id, amount, status, created_at, updated_at, paid_at, refunded_at) VALUES
+-- payment 1 (participation 3): 결제완료, 공동구매 결과 대기중
+(3, 26100, 'PAID', DATE_SUB(NOW(), INTERVAL 4 DAY), DATE_SUB(NOW(), INTERVAL 4 DAY), DATE_SUB(NOW(), INTERVAL 4 DAY), NULL),
+-- payment 2 (participation 4): 결제완료, 배송지 미입력 상태로 상품준비중
+(4, 3600, 'PAID', DATE_SUB(NOW(), INTERVAL 9 DAY), DATE_SUB(NOW(), INTERVAL 9 DAY), DATE_SUB(NOW(), INTERVAL 9 DAY), NULL),
+-- payment 3 (participation 5): 결제완료, 배송중
+(5, 2800, 'PAID', DATE_SUB(NOW(), INTERVAL 14 DAY), DATE_SUB(NOW(), INTERVAL 9 DAY), DATE_SUB(NOW(), INTERVAL 14 DAY), NULL),
+-- payment 4 (participation 6): 목표미달로 환불됨
+(6, 4250, 'REFUNDED', DATE_SUB(NOW(), INTERVAL 7 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_SUB(NOW(), INTERVAL 7 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY)),
+-- payment 5 (participation 8): 결제완료, 공동구매 결과 대기중
+(8, 50150, 'PAID', DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY), NULL),
+-- payment 6 (participation 9): 결제완료, 배송지 입력 후 상품준비중
+(9, 15000, 'PAID', DATE_SUB(NOW(), INTERVAL 8 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_SUB(NOW(), INTERVAL 8 DAY), NULL),
+-- payment 7 (participation 10): 결제완료, 배송완료
+(10, 26100, 'PAID', DATE_SUB(NOW(), INTERVAL 19 DAY), DATE_SUB(NOW(), INTERVAL 12 DAY), DATE_SUB(NOW(), INTERVAL 19 DAY), NULL),
+-- payment 8 (participation 11): 배송완료 후 반품 처리완료로 환불됨
+(11, 4750, 'REFUNDED', DATE_SUB(NOW(), INTERVAL 24 DAY), DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL 24 DAY), DATE_SUB(NOW(), INTERVAL 15 DAY)),
+-- payment 9 (participation 12): 배송완료 후 반품 진행중, 환불은 이미 처리됨
+(12, 36000, 'REFUNDED', DATE_SUB(NOW(), INTERVAL 29 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 29 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY));
 
+-- ============================================================
+-- 환불(refund) — payment 4, 8, 9에 대응
+-- ============================================================
+INSERT INTO refund (payment_id, amount, reason, status, pg_idempotency_key, pg_cancellation_transaction_id,
+                     retry_count, requested_at, refunded_at, updated_at) VALUES
+(4, 4250, '공동구매 목표 인원 미달', 'REFUNDED', 'seed-refund-idem-0001', 'seed-refund-txn-0001',
+ 0, DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(8, 4750, '단순 변심으로 인한 반품 요청', 'REFUNDED', 'seed-refund-idem-0002', 'seed-refund-txn-0002',
+ 0, DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL 13 DAY)),
+(9, 36000, '단순 변심으로 인한 반품 요청', 'REFUNDED', 'seed-refund-idem-0003', 'seed-refund-txn-0003',
+ 0, DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY));
+
+-- ============================================================
+-- 주문(order_table) — payment 1~9에 각각 1:1 대응
+-- 배송지(recipient_*, address 등)는 PREPARING 이후 상태로 넘어간 주문에만 입력되어 있고,
+-- SHIPPING/DELIVERED/RETURNING/RETURNED로 전이하려면 배송지가 반드시 등록되어 있어야 한다는
+-- 도메인 규칙(Order.changeDeliveryStatusByAdmin)에 맞춰 데이터를 구성했다.
+-- ============================================================
 INSERT INTO order_table
 (order_number, participation_id, payment_id, buyer_id, group_buy_id, product_id, product_name,
  quantity, base_price, discount_rate, discount_amount, amount,
- delivery_status, created_at, updated_at) VALUES
-('018330029', 3, 1, 2, 1, 1, '텀블러 6종 세트',
- 1, 18000, 0.30, 5400, 12600, 'WAITING_FOR_GROUP_BUY', NOW(), NOW());
+ delivery_status, recipient_name, recipient_phone, zip_code, address, address_detail, delivery_request,
+ preparation_started_at, shipping_started_at, delivered_at, created_at, updated_at) VALUES
+-- order 1 (payment 1): 공동구매 결과 대기중 → 배송지 입력 전이라도 정상 상태
+('900000001', 3, 1, 1, 106, 8, '극세사 담요',
+ 1, 29000, 0.10, 2900, 26100,
+ 'WAITING_FOR_GROUP_BUY', NULL, NULL, NULL, NULL, NULL, NULL,
+ NULL, NULL, NULL, DATE_SUB(NOW(), INTERVAL 4 DAY), DATE_SUB(NOW(), INTERVAL 4 DAY)),
+-- order 2 (payment 2): 목표 달성, 배송지 미입력 → 상품준비중에 머물러 있음(정상)
+('900000002', 4, 2, 1, 107, 9, '실리콘 주방장갑',
+ 3, 1500, 0.20, 900, 3600,
+ 'PREPARING', NULL, NULL, NULL, NULL, NULL, NULL,
+ DATE_SUB(NOW(), INTERVAL 5 DAY), NULL, NULL, DATE_SUB(NOW(), INTERVAL 9 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY)),
+-- order 3 (payment 3): 목표 달성, 배송지 입력 완료 후 배송중
+('900000003', 5, 3, 1, 108, 10, '접이식 빨래건조대',
+ 2, 2000, 0.30, 1200, 2800,
+ 'SHIPPING', '구매자1', '010-1111-2222', '06236', '서울특별시 강남구 테헤란로 123', '101동 1001호', '부재 시 경비실에 맡겨주세요',
+ DATE_SUB(NOW(), INTERVAL 10 DAY), DATE_SUB(NOW(), INTERVAL 9 DAY), NULL, DATE_SUB(NOW(), INTERVAL 14 DAY), DATE_SUB(NOW(), INTERVAL 9 DAY)),
+-- order 4 (payment 4): 목표 미달로 환불 → 주문은 취소 처리
+('900000004', 6, 4, 1, 109, 11, '투명 수납박스',
+ 1, 5000, 0.15, 750, 4250,
+ 'CANCELLED', NULL, NULL, NULL, NULL, NULL, NULL,
+ NULL, NULL, NULL, DATE_SUB(NOW(), INTERVAL 7 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY)),
+-- order 5 (payment 5): 공동구매 결과 대기중
+('900000005', 8, 5, 2, 111, 13, '욕실 방수매트',
+ 1, 59000, 0.15, 8850, 50150,
+ 'WAITING_FOR_GROUP_BUY', NULL, NULL, NULL, NULL, NULL, NULL,
+ NULL, NULL, NULL, DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY)),
+-- order 6 (payment 6): 목표 달성, 배송지 입력 완료 후 상품준비중(곧 발송 예정)
+('900000006', 9, 6, 2, 112, 14, '다림질 보드',
+ 4, 5000, 0.25, 5000, 15000,
+ 'PREPARING', '구매자2', '010-3333-4444', '03181', '서울특별시 종로구 세종대로 100', '202동 2002호', '문 앞에 놔주세요',
+ DATE_SUB(NOW(), INTERVAL 4 DAY), NULL, NULL, DATE_SUB(NOW(), INTERVAL 8 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY)),
+-- order 7 (payment 7): 배송완료
+('900000007', 10, 7, 2, 113, 15, '행거형 옷걸이 세트',
+ 1, 29000, 0.10, 2900, 26100,
+ 'DELIVERED', '구매자2', '010-3333-4444', '03181', '서울특별시 종로구 세종대로 100', '202동 2002호', '문 앞에 놔주세요',
+ DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL 14 DAY), DATE_SUB(NOW(), INTERVAL 12 DAY), DATE_SUB(NOW(), INTERVAL 19 DAY), DATE_SUB(NOW(), INTERVAL 12 DAY)),
+-- order 8 (payment 8): 배송완료 후 반품 처리까지 완료
+('900000008', 11, 8, 2, 114, 4, '접이식 우산',
+ 5, 1000, 0.05, 250, 4750,
+ 'RETURNED', '구매자2', '010-3333-4444', '03181', '서울특별시 종로구 세종대로 100', '202동 2002호', '문 앞에 놔주세요',
+ DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL 19 DAY), DATE_SUB(NOW(), INTERVAL 17 DAY), DATE_SUB(NOW(), INTERVAL 24 DAY), DATE_SUB(NOW(), INTERVAL 13 DAY)),
+-- order 9 (payment 9): 배송완료 후 반품 진행중(아직 처리완료 전)
+('900000009', 12, 9, 2, 115, 7, '다용도 정리함',
+ 1, 45000, 0.20, 9000, 36000,
+ 'RETURNING', '구매자2', '010-3333-4444', '03181', '서울특별시 종로구 세종대로 100', '202동 2002호', '문 앞에 놔주세요',
+ DATE_SUB(NOW(), INTERVAL 25 DAY), DATE_SUB(NOW(), INTERVAL 24 DAY), DATE_SUB(NOW(), INTERVAL 22 DAY), DATE_SUB(NOW(), INTERVAL 29 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY));
