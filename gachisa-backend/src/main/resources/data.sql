@@ -17,16 +17,19 @@ INSERT INTO category (name, parent_id) VALUES
                                            ('디지털', NULL),
                                            ('기타', NULL);
 
--- 하위 카테고리 추가 (parent_id를 subquery로 참조하여 순서 독립적으로 동작하도록 함)
+-- 하위 카테고리 추가
+-- MySQL은 INSERT ... VALUES의 서브쿼리에서 같은 테이블(category)을 참조할 수 없어서
+-- ("You can't specify target table 'category' for update in FROM clause") 상위 카테고리의
+-- id를 직접 리터럴로 넣는다. 위 INSERT에서 생활/리빙=1, 식품=2, 디지털=3, 기타=4로 고정 생성됨.
 INSERT INTO category (name, parent_id) VALUES
-  ('주방', (SELECT id FROM category WHERE name='생활/리빙' LIMIT 1)),
-  ('침실/욕실', (SELECT id FROM category WHERE name='생활/리빙' LIMIT 1)),
-  ('커피/차', (SELECT id FROM category WHERE name='식품' LIMIT 1)),
-  ('간편식', (SELECT id FROM category WHERE name='식품' LIMIT 1)),
-  ('액세서리', (SELECT id FROM category WHERE name='디지털' LIMIT 1)),
-  ('모바일', (SELECT id FROM category WHERE name='디지털' LIMIT 1)),
-  ('캠핑/아웃도어', (SELECT id FROM category WHERE name='기타' LIMIT 1)),
-  ('반려동물용품', (SELECT id FROM category WHERE name='기타' LIMIT 1));
+  ('주방', 1),
+  ('침실/욕실', 1),
+  ('커피/차', 2),
+  ('간편식', 2),
+  ('액세서리', 3),
+  ('모바일', 3),
+  ('캠핑/아웃도어', 4),
+  ('반려동물용품', 4);
 
 INSERT INTO product (seller_id, category_id, name, description, base_price, stock, status, created_at) VALUES
 (3, 1, '텀블러 6종 세트', '보온·보냉 겸용 텀블러 6종 구성', 18000, 100, 'ON_SALE', NOW()),
