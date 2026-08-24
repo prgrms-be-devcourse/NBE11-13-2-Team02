@@ -5,8 +5,10 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
 @NoArgsConstructor
 public class ConcurrencyStressRequest {
 
@@ -15,7 +17,7 @@ public class ConcurrencyStressRequest {
         UNSAFE,
         /** DB SELECT FOR UPDATE 만 사용 */
         DB_LOCK,
-        /** Redis 원자 예약 + DB 비관적 락 (현재 운영 경로) */
+        /** 분산락(Redis 원자 예약) + DB 비관적 락 (현재 운영 경로) */
         REDIS_AND_DB
     }
 
