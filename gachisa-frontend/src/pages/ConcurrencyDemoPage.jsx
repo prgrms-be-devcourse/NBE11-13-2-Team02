@@ -227,52 +227,79 @@ export default function ConcurrencyDemoPage() {
           </Stack>
         </Paper>
 
-        {result && (
-            <Paper sx={{ p: 3, mt: 3 }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                <Typography variant="h6" fontWeight={800}>
-                  결과
-                </Typography>
-                <Chip
-                    size="small"
-                    label={result.oversold ? '초과 모집 발생' : '정원 준수'}
-                    color={result.oversold ? 'error' : 'success'}
-                />
-              </Stack>
-              <Alert severity={result.oversold ? 'error' : 'success'} sx={{ mb: 2 }}>
-                {result.summary}
-              </Alert>
-              <Divider sx={{ mb: 2 }} />
-              <Stack spacing={0.8}>
-                <Typography variant="body2">
-                  모드: {MODES.find((m) => m.value === result.mode)?.label ?? result.mode}
-                </Typography>
-                <Typography variant="body2">
-                  성공 {result.successCount} / 정원초과거절 {result.rejectedAsFull ?? result.failureCount} / 기타실패{' '}
-                  {result.otherFailures ?? 0} (스레드 {result.threadCount})
-                </Typography>
-                <Typography variant="body2">
-                  시작 전 DB currentCount: {result.currentCountBefore} → 테스트는 0부터 다시 채움 (target{' '}
-                  {result.targetCount})
-                </Typography>
-                <Typography variant="body2">
-                  테스트 후 DB currentCount: {result.currentCountAfterDb}
-                  {result.mode === 'REDIS_AND_DB' && (
-                      <> / Redis: {result.currentCountAfterRedis ?? '-'}</>
+        {result && (() => {
+          const hasRejectedAsFull = (result.rejectedAsFull ?? result.failureCount ?? 0) > 0
+          const hasOtherFailures = (result.otherFailures ?? 0) > 0
+          const isTestSuccess = !result.oversold && !hasOtherFailures
+
+          return (
+              <Paper sx={{ p: 3, mt: 3 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                  <Typography variant="h6" fontWeight={800}>
+                    결과
+                  </Typography>
+                  <Chip
+                      size="small"
+                      label={
+                        result.oversold
+                            ? '초과 모집 발생'
+                            : hasOtherFailures
+                                ? '테스트 실패'
+                                : '정원 준수'
+                      }
+                      color={
+                        result.oversold
+                            ? 'error'
+                            : hasOtherFailures
+                                ? 'warning'
+                                : 'success'
+                      }
+                  />
+                </Stack>
+                <Alert
+                    severity={
+                      result.oversold
+                          ? 'error'
+                          : hasOtherFailures
+                              ? 'warning'
+                              : 'success'
+                    }
+                    sx={{ mb: 2 }}
+                >
+                  {result.summary}
+                </Alert>
+                <Divider sx={{ mb: 2 }} />
+                <Stack spacing={0.8}>
+                  <Typography variant="body2">
+                    모드: {MODES.find((m) => m.value === result.mode)?.label ?? result.mode}
+                  </Typography>
+                  <Typography variant="body2">
+                    성공 {result.successCount} / 정원초과거절 {result.rejectedAsFull ?? result.failureCount} / 기타실패{' '}
+                    {result.otherFailures ?? 0} (스레드 {result.threadCount})
+                  </Typography>
+                  <Typography variant="body2">
+                    시작 전 DB currentCount: {result.currentCountBefore} → 테스트는 0부터 다시 채움 (target{' '}
+                    {result.targetCount})
+                  </Typography>
+                  <Typography variant="body2">
+                    테스트 후 DB currentCount: {result.currentCountAfterDb}
+                    {result.mode === 'REDIS_AND_DB' && (
+                        <> / Redis: {result.currentCountAfterRedis ?? '-'}</>
+                    )}
+                  </Typography>
+                  {result.successCount > result.targetCount && result.currentCountAfterDb <= result.targetCount && (
+                      <Typography variant="caption" color="error.main">
+                        ⚠ 성공 응답 수({result.successCount})가 정원({result.targetCount})을 넘었는데 DB값은 낮습니다.
+                        이건 Lost Update로 일부 반영이 유실됐다는 뜻입니다.
+                      </Typography>
                   )}
+                </Stack>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+                  권장 확인 순서: ① UNSAFE로 oversold 확인 → ② 분산락(REDIS_AND_DB)로 정원 준수 확인
                 </Typography>
-                {result.successCount > result.targetCount && result.currentCountAfterDb <= result.targetCount && (
-                    <Typography variant="caption" color="error.main">
-                      ⚠ 성공 응답 수({result.successCount})가 정원({result.targetCount})을 넘었는데 DB값은 낮습니다.
-                      이건 Lost Update로 일부 반영이 유실됐다는 뜻입니다.
-                    </Typography>
-                )}
-              </Stack>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-                권장 확인 순서: ① UNSAFE로 oversold 확인 → ② 분산락(REDIS_AND_DB)로 정원 준수 확인
-              </Typography>
-            </Paper>
-        )}
+              </Paper>
+          )
+        })()}
       </Box>
   )
 }
