@@ -17,9 +17,28 @@ INSERT INTO category (name, parent_id) VALUES
                                            ('디지털', NULL),
                                            ('기타', NULL);
 
+-- 하위 카테고리 추가 (parent_id를 subquery로 참조하여 순서 독립적으로 동작하도록 함)
+INSERT INTO category (name, parent_id) VALUES
+  ('주방', (SELECT id FROM category WHERE name='생활/리빙' LIMIT 1)),
+  ('침실/욕실', (SELECT id FROM category WHERE name='생활/리빙' LIMIT 1)),
+  ('커피/차', (SELECT id FROM category WHERE name='식품' LIMIT 1)),
+  ('간편식', (SELECT id FROM category WHERE name='식품' LIMIT 1)),
+  ('액세서리', (SELECT id FROM category WHERE name='디지털' LIMIT 1)),
+  ('모바일', (SELECT id FROM category WHERE name='디지털' LIMIT 1)),
+  ('캠핑/아웃도어', (SELECT id FROM category WHERE name='기타' LIMIT 1)),
+  ('반려동물용품', (SELECT id FROM category WHERE name='기타' LIMIT 1));
+
 INSERT INTO product (seller_id, category_id, name, description, base_price, stock, status, created_at) VALUES
 (3, 1, '텀블러 6종 세트', '보온·보냉 겸용 텀블러 6종 구성', 18000, 100, 'ON_SALE', NOW()),
-(3, 2, '유기농 원두 1kg', '싱글 오리진 원두', 16000, 100, 'ON_SALE', NOW());
+(3, 2, '유기농 원두 1kg', '싱글 오리진 원두', 16000, 100, 'ON_SALE', NOW()),
+(3, (SELECT id FROM category WHERE name='주방' LIMIT 1), '스텐 주방용품 4종', '스텐 소재 주방용품 4종 세트', 22000, 60, 'ON_SALE', NOW()),
+(3, (SELECT id FROM category WHERE name='침실/욕실' LIMIT 1), '극세사 베개커버', '극세사 소재 베개커버', 8000, 40, 'ON_SALE', NOW()),
+(3, (SELECT id FROM category WHERE name='커피/차' LIMIT 1), '스페셜티 핸드드립 원두 200g', '소량 로스팅 스페셜티 원두', 12000, 120, 'ON_SALE', NOW()),
+(3, (SELECT id FROM category WHERE name='간편식' LIMIT 1), '즉석 국/찌개 3종 세트', '간편 조리 식품 세트', 15000, 80, 'ON_SALE', NOW()),
+(3, (SELECT id FROM category WHERE name='액세서리' LIMIT 1), '무선 이어폰 케이스', '보호용 실리콘 케이스', 5000, 150, 'ON_SALE', NOW()),
+(3, (SELECT id FROM category WHERE name='모바일' LIMIT 1), '휴대용 보조 배터리 10000mAh', '슬림형 보조배터리', 22000, 200, 'ON_SALE', NOW()),
+(3, (SELECT id FROM category WHERE name='캠핑/아웃도어' LIMIT 1), '캠핑용 LED 랜턴', '충전식 LED 랜턴', 18000, 70, 'ON_SALE', NOW()),
+(3, (SELECT id FROM category WHERE name='반려동물용품' LIMIT 1), '고양이 간식 믹스', '수제 고양이 간식', 7000, 90, 'ON_SALE', NOW());
 
 -- 상품 목록/검색/페이지네이션 테스트용 대량 시드 데이터 (product id 3~100, 총 100개 상품)
 -- 제일 저렴한 상품(마지막 행, '스마트워치 (리필)')이 10원
