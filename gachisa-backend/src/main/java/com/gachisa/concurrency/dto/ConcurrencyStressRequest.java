@@ -1,5 +1,6 @@
 package com.gachisa.concurrency.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -10,6 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
+@Schema(description = "동시성 데모(local 전용)용 부하 테스트 요청")
 public class ConcurrencyStressRequest {
 
     public enum Mode {
@@ -21,15 +23,16 @@ public class ConcurrencyStressRequest {
         REDIS_AND_DB
     }
 
+    @Schema(description = "동시성 제어 방식", example = "REDIS_AND_DB")
     @NotNull
     private Mode mode = Mode.REDIS_AND_DB;
 
-    /** 동시에 던질 요청 수. DB 커넥션 풀(기본 10)보다 너무 크면 대기 타임아웃이 섞인다. */
+    @Schema(description = "동시에 던질 요청 수 (2~80)", example = "30")
     @Min(2)
     @Max(80)
     private int threadCount = 30;
 
-    /** 요청당 예약 수량 */
+    @Schema(description = "요청당 예약 수량 (1~10)", example = "1")
     @Min(1)
     @Max(10)
     private int quantityPerRequest = 1;
