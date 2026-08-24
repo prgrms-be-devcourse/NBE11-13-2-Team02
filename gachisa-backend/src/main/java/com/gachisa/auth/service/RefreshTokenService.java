@@ -96,4 +96,9 @@ public class RefreshTokenService {
                 refreshTokenCacheRepository.evict(tokenHash, token.getUserId());
             });
     }
+
+    @Transactional
+    public int cleanupStaleTokens(LocalDateTime cutoff) {
+        return refreshTokenRepository.deleteAllExpiredBefore(cutoff);
+    }
 }
