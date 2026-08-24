@@ -13,7 +13,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { getGroupBuyDetail, cancelGroupBuy } from '../api/groupBuyApi'
 import { getProduct } from '../api/productApi'
-import { getMyParticipations } from '../api/participationApi'
+import { getMyParticipations, getParticipationCount } from '../api/participationApi'
 import { getErrorMessage } from '../api/errorMessage'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useCountdown } from '../hooks/useCountdown'
@@ -65,6 +65,38 @@ export default function GroupBuyDetailPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Redis 기반 실시간 참여 인원 폴링 (PT-03)
+  useEffect(() => {
+    if (!groupBuyId || !groupBuy) return undefined
+    let cancelled = false
+    const tick = () => {
+      getParticipationCount(groupBuyId)
+        .then(({ data }) => {
+          if (cancelled || !data) return
+          setGroupBuy((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  currentCount: data.currentCount,
+                  targetCount: data.targetCount,
+                  progressRate:
+                    data.targetCount > 0
+                      ? Math.round((data.currentCount * 1000) / data.targetCount) / 10
+                      : 0,
+                }
+              : prev,
+          )
+        })
+        .catch(() => {})
+    }
+    tick()
+    const timer = setInterval(tick, 2000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [groupBuyId, groupBuy?.groupBuyId])
 
   useEffect(() => {
     if (!isBuyer || !groupBuy) return undefined

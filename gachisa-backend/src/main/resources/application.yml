@@ -5,6 +5,11 @@ spring:
   profiles:
     active: local
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
   jpa:
     hibernate:
       ddl-auto: validate   # 초기 개발 중엔 update, 이후 반드시 validate로 전환 권장

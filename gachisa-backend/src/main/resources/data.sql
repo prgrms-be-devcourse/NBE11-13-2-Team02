@@ -1,7 +1,7 @@
 -- 같이사 프로젝트 개발용 시드 데이터
--- application.yml에서 ddl-auto: create-drop + defer-datasource-initialization: true 설정 시
--- 앱이 뜰 때 (Hibernate가 엔티티 기준으로 테이블 생성 직후) 자동으로 실행됩니다.
--- 앱을 끄면 테이블 자체가 삭제되므로, 이 파일은 항상 최신 스키마에 맞게 유지하면 됩니다.
+-- ddl-auto: create-drop + sql.init.mode: always 일 때만 매 기동마다 실행하세요.
+-- ddl-auto: update 로 데이터를 유지할 때는 sql.init.mode: never 로 두세요.
+-- (update + always 조합은 users.email 등 unique 컬럼에서 Duplicate entry 로 기동이 실패합니다.)
 
 -- 비밀번호는 전부 '1234' (BCryptPasswordEncoder로 해시한 값)
 -- provider를 명시 안 하면 MySQL이 NOT NULL enum 컬럼에 임의의 기본값(정의 순서상 첫 값)을 넣어버려서 반드시 명시해야 함

@@ -80,7 +80,7 @@ class ParticipationServiceTest {
         var response = participationService.participate(3L, 1L, request);
 
         assertThat(response.getParticipationId()).isEqualTo(4L);
-        assertThat(groupBuy.getCurrentCount()).isEqualTo(5);
+        verify(groupBuyService).releaseSlots(3L, 1);
         verify(participationRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
 
